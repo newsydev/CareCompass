@@ -6,6 +6,7 @@ import type { DemoChat } from '../utils/chatHistory'
 import type { DemoProfile } from '../utils/demoProfile'
 import { careLabel } from '../utils/i18n'
 import { formatSlot } from '../utils/slots'
+import { generateDoctorHandover } from '../utils/clinicalHandover'
 
 export interface TimelineEvent {
   id: string
@@ -75,6 +76,7 @@ export function PatientTimeline({ profile, chats }: PatientTimelineProps) {
         details: chat.result?.reasoning || 'Critical symptoms detected. Routine caregiver dispatch was blocked, and 112 emergency advice was provided.',
       })
     } else if (chat.result) {
+      const handover = generateDoctorHandover(chat.result, profile, chat.patientContext, chat.recipient)
       events.push({
         id: `chat-${chat.id}`,
         type: 'consultation',
@@ -83,7 +85,7 @@ export function PatientTimeline({ profile, chats }: PatientTimelineProps) {
         subtitle: `"${userFirstMsg.slice(0, 70)}${userFirstMsg.length > 70 ? '...' : ''}"`,
         urgency: chat.result.urgency || 'routine',
         careType: chat.result.care_type || undefined,
-        details: chat.result.reasoning || chat.result.assessment?.summary || 'Clinical intake and caregiver evaluation completed.',
+        details: `1️⃣ ${handover.situation}\n\n2️⃣ ${handover.background}\n\n3️⃣ ${handover.action}`,
       })
     }
   })

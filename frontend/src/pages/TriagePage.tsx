@@ -23,6 +23,7 @@ import type { DemoProfile } from '../utils/demoProfile'
 import type { DemoChat } from '../utils/chatHistory'
 import { patientContextFromProfile, validatePatientContext } from '../utils/patientContext'
 import { describeResponse } from '../utils/chatSummary'
+import { DoctorCaseSummary } from '../components/DoctorCaseSummary'
 import type { Booking, ConversationTurn, TriageResponse } from '../api/types'
 
 type ServiceExample = { label: string; example: string; recipient: 'self' | 'other' }
@@ -455,6 +456,13 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
               isSpeaking={voice.speakingKey === `reply-${resultTurnIndex}`}
               disabled={!voice.canSpeak || voice.isListening}
               onClick={() => voice.speak(`reply-${resultTurnIndex}`, describeResponse(result!), voiceLanguage)}
+            />
+
+            <DoctorCaseSummary
+              response={result!}
+              profile={profile}
+              patientContext={patientContext}
+              recipient={recipient}
             />
 
             {result!.matching_note && (
