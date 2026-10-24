@@ -21,6 +21,14 @@ export function AppHeader() {
         <nav className="flex items-center gap-2 sm:gap-3 text-sm" aria-label="Account">
         {profile ? (
           <>
+            <Link
+              to="/profile"
+              className="flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50/80 px-2.5 py-1.5 text-xs font-semibold text-sky-800 hover:bg-sky-100 transition"
+              title="View your longitudinal medical timeline and health record"
+            >
+              <span>📈</span>
+              <span className="hidden sm:inline">Health Timeline</span>
+            </Link>
             <Link to="/profile" className="flex items-center gap-2 font-medium text-gray-700" aria-label={`${profile.name} profile`}>
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-brand-700">{profile.name.charAt(0).toUpperCase()}</span>
               <span className="hidden max-w-32 truncate sm:inline">{profile.name}</span>
