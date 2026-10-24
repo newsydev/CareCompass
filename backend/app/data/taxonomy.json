@@ -1,0 +1,76 @@
+{
+  "red_flag_controlled_vocab": [
+    "chest_pain",
+    "breathlessness",
+    "unconsciousness",
+    "severe_bleeding",
+    "stroke_symptoms",
+    "seizure",
+    "high_fever_infant",
+    "suicidal_ideation",
+    "severe_dehydration"
+  ],
+  "red_flag_triggers": {
+    "chest_pain": [
+      "chest pain", "seene me dard", "seene mein dard", "chhati me dard", "chhati mein dard",
+      "angina", "chhati dard", "heart attack", "छाती में दर्द", "सीने में दर्द"
+    ],
+    "breathlessness": [
+      "breathlessness", "saans nahi aa rahi", "saans lene mein dikkat", "saans lene me dikkat",
+      "difficulty breathing", "shortness of breath", "saans phoolna", "asthma attack",
+      "सांस नहीं आ रही", "सांस लेने में दिक्कत"
+    ],
+    "unconsciousness": [
+      "collapsed", "not responding", "unconscious", "behosh", "behoshi", "fainted",
+      "response nahi de rahe", "chanak gir gaye", "achanak gir gaye", "gir gaye",
+      "बेहोश", "अचानक गिर गए", "प्रतिक्रिया नहीं दे रहे"
+    ],
+    "severe_bleeding": [
+      "bleeding that won't stop", "bleeding ruk nahi rahi", "heavy bleeding", "severe bleeding",
+      "khoon ruk nahi raha", "accident ke baad bleeding", "खून नहीं रुक रहा", "भारी रक्तस्राव"
+    ],
+    "stroke_symptoms": [
+      "stroke", "paralysis", "lakwa", "facial droop", "slurred speech", "bol nahi pa rahe",
+      "munh tedha", "लकवा", "चेहरा टेढ़ा"
+    ],
+    "seizure": [
+      "seizure", "convulsion", "daura", "daure", "fits", "mirgi", "दौरा", "मिर्गी"
+    ],
+    "high_fever_infant": [
+      "infant high fever", "navjat shishu tez bukhar", "baby high fever", "नवजात तेज बुखार"
+    ],
+    "suicidal_ideation": [
+      "suicide", "suicidal", "khudkushi", "jaan dene", "आत्महत्या"
+    ],
+    "severe_dehydration": [
+      "severe dehydration", "paani ki kami behoshi", "gale me sujan"
+    ]
+  },
+  "care_types": {
+    "emergency_112": {
+      "default_urgency": "emergency",
+      "role": null,
+      "description": "Critical red flags requiring emergency services 112 / immediate ER."
+    },
+    "home_nursing": {
+      "default_urgency": "same_day",
+      "role": "medic",
+      "description": "In-home nursing care for injection, dressing, wound, catheter, vitals."
+    },
+    "paramedic_home_visit": {
+      "default_urgency": "same_day",
+      "role": "medic",
+      "description": "In-home physical assessment by a Medic for acute fever, illness, elderly malaise."
+    },
+    "lab_test_home": {
+      "default_urgency": "scheduled",
+      "role": "phlebotomist",
+      "description": "In-home blood or diagnostic sample collection by a phlebotomist."
+    },
+    "teleconsultation": {
+      "default_urgency": "same_day",
+      "role": "doctor",
+      "description": "Virtual doctor teleconsultation for general non-emergency symptoms, acidity, rash."
+    }
+  }
+}
