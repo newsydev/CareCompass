@@ -30,8 +30,12 @@ def allowed_origins():
 def check_origin(request: Request):
     if request.method not in ("GET", "HEAD", "OPTIONS"):
         origin = request.headers.get("origin")
-        if origin and origin not in allowed_origins():
-            raise HTTPException(403, "This request origin is not allowed.")
+        if not origin or origin in allowed_origins():
+            return
+        clean_host = origin.replace("http://", "").replace("https://", "").split(":")[0]
+        if clean_host.startswith(("192.168.", "10.")) or origin.endswith((".ngrok-free.app", ".ngrok.io")):
+            return
+        raise HTTPException(403, "This request origin is not allowed.")
 
 
 router = APIRouter(prefix="/api", dependencies=[Depends(check_origin)])
