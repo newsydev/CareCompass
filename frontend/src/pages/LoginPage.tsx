@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import doctorsTeam from '../assets/doctors-team.png'
+import doctorsTeam from '../assets/doctors-team.webp'
 import { AuthLayout } from '../components/AuthLayout'
 
 export function LoginPage() {

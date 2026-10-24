@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import healthcareHero from '../assets/healthcare-hero.png'
+import healthcareHero from '../assets/healthcare-hero.webp'
 import { AuthLayout } from '../components/AuthLayout'
 
 export function SignupPage() {
