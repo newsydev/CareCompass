@@ -4,17 +4,14 @@ import pandas as pd
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from app.schemas import CaregiverMatch, Location
+from app.config import DATA_DIR
 
-CSV_PATH_APP = Path(__file__).resolve().parent.parent / "data" / "caregivers.csv"
-CSV_PATH_ROOT = Path(__file__).resolve().parent.parent.parent / "data" / "caregivers.csv"
+CSV_PATH = DATA_DIR / "caregivers.csv"
 
-# Load caregivers dataframe
-if CSV_PATH_APP.exists():
-    CAREGIVER_DF = pd.read_csv(CSV_PATH_APP)
-elif CSV_PATH_ROOT.exists():
-    CAREGIVER_DF = pd.read_csv(CSV_PATH_ROOT)
-else:
-    raise FileNotFoundError("caregivers.csv not found!")
+if not CSV_PATH.exists():
+    raise FileNotFoundError(f"caregivers.csv not found at {CSV_PATH}!")
+
+CAREGIVER_DF = pd.read_csv(CSV_PATH)
 
 # Clean active flag
 CAREGIVER_DF["active"] = CAREGIVER_DF["active"].astype(str).str.lower().isin(["true", "1"])

@@ -4,9 +4,9 @@ from pathlib import Path
 from typing import List, Dict, Any
 from groq import Groq
 from app.schemas import ExtractedEntities
-from app.config import GROQ_API_KEY
+from app.config import GROQ_API_KEY, DATA_DIR
 
-TAXONOMY_PATH = Path(__file__).resolve().parent.parent / "data" / "taxonomy.json"
+TAXONOMY_PATH = DATA_DIR / "taxonomy.json"
 
 with open(TAXONOMY_PATH, "r", encoding="utf-8") as f:
     TAXONOMY_DATA = json.load(f)

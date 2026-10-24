@@ -18,19 +18,14 @@ if str(backend_dir) not in sys.path:
 from app.modules.triage import detect_red_flags
 from app.modules.matching import match_caregivers
 from app.schemas import Location
+from app.config import DATA_DIR
 
 def run_benchmark():
-    dataset_path_app = backend_dir / "app" / "data" / "triage_dataset.jsonl"
-    dataset_path_root = backend_dir.parent / "data" / "triage_dataset.jsonl"
+    dataset_path = DATA_DIR / "triage_dataset.jsonl"
+    if not dataset_path.exists():
+        raise FileNotFoundError(f"triage_dataset.jsonl not found at {dataset_path}!")
 
-    if dataset_path_app.exists():
-        path = dataset_path_app
-    elif dataset_path_root.exists():
-        path = dataset_path_root
-    else:
-        raise FileNotFoundError("triage_dataset.jsonl not found!")
-
-    with open(path, "r", encoding="utf-8") as f:
+    with open(dataset_path, "r", encoding="utf-8") as f:
         cases = [json.loads(line) for line in f]
 
     total_cases = len(cases)
