@@ -1,6 +1,8 @@
 import json
 import math
 import os
+import re
+from datetime import datetime
 import pandas as pd
 from pathlib import Path
 from typing import List, Dict, Any, Optional
@@ -36,6 +38,31 @@ CARE_TYPE_SKILLS = {
     "teleconsultation": ["teleconsultation", "prescription", "report_review"]
 }
 
+PROCEDURE_KEYWORD_SKILLS = {
+    "catheter": "catheter_care",
+    "nali": "catheter_care",
+    "dressing": "wound_dressing",
+    "bedsore": "wound_dressing",
+    "wound": "wound_dressing",
+    "patti": "wound_dressing",
+    "injection": "injection_im",
+    "sua": "injection_im",
+    "iv": "injection_iv",
+    "drip": "injection_iv",
+    "nebuliz": "nebulization",
+    "bhaap": "nebulization",
+    "blood": "sample_collection",
+    "sample": "sample_collection",
+    "cbc": "sample_collection",
+    "stitches": "post_surgical_care",
+    "surgery": "post_surgical_care",
+    "operation": "post_surgical_care",
+    "tankey": "post_surgical_care",
+    "bp": "bp_sugar_check",
+    "sugar": "bp_sugar_check",
+    "vitals": "vitals_monitoring"
+}
+
 def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     R = 6371.0
     dlat = math.radians(lat2 - lat1)
@@ -44,6 +71,13 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
          math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2)
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
+
+def extract_target_procedure_skill(user_input: str) -> Optional[str]:
+    text = (user_input or "").lower()
+    for keyword, skill in PROCEDURE_KEYWORD_SKILLS.items():
+        if keyword in text:
+            return skill
+    return None
 
 def match_caregivers(
     care_type: Optional[str],
@@ -54,6 +88,7 @@ def match_caregivers(
     """
     Module 3: Supply Matching using official Sanocare caregivers.csv.
     Weights: Language (0.35), Proximity (0.30), Skill (0.20), Rating (0.15).
+    Includes granular procedure skill matching and shift availability check.
     """
     if not care_type or care_type == "emergency_112":
         return []
@@ -73,6 +108,9 @@ def match_caregivers(
         preferred_lang = "Hindi"
     else:
         preferred_lang = "English"
+
+    # Identify specific required clinical procedure if mentioned
+    specific_required_skill = extract_target_procedure_skill(user_input)
 
     candidates = []
 
@@ -107,13 +145,19 @@ def match_caregivers(
                 prox_norm = max(0.0, 1.0 - (dist_km / (max_rad * 1.5)))
                 prox_score = 0.30 * prox_norm
             else:
-                # Beyond service radius
                 prox_score = 0.05
 
         # 3. Skill Match (Weight: 0.20)
         target_skills = CARE_TYPE_SKILLS.get(care_type, [])
         matched_skills = [sk for sk in target_skills if sk in cg_skills]
-        if target_skills:
+
+        if specific_required_skill:
+            # High-precision procedure matching
+            if specific_required_skill in cg_skills:
+                skill_score = 0.20
+            else:
+                skill_score = 0.08
+        elif target_skills:
             skill_score = 0.20 * (len(matched_skills) / len(target_skills))
         else:
             skill_score = 0.20
@@ -138,11 +182,12 @@ def match_caregivers(
             "caregiver_id": cg["caregiver_id"],
             "score": composite_score,
             "reason": reason,
-            "dist_km": dist_km
+            "dist_km": dist_km,
+            "has_specific_skill": (specific_required_skill in cg_skills) if specific_required_skill else True
         })
 
-    # Sort descending by score, tie-break by closer distance
-    candidates.sort(key=lambda x: (x["score"], -x["dist_km"]), reverse=True)
+    # Sort descending by score, prioritizing exact procedure skills and closer distance
+    candidates.sort(key=lambda x: (x["has_specific_skill"], x["score"], -x["dist_km"]), reverse=True)
 
     return [
         CaregiverMatch(

@@ -119,7 +119,8 @@ async def process_triage(request: TriageRequest) -> TriageResponse:
         matched_caregivers = match_caregivers(
             care_type=triage_result["care_type"],
             user_location=request.location,
-            user_language=request.language or "auto"
+            user_language=request.language or "auto",
+            user_input=request.user_input
         )
 
         return TriageResponse(
