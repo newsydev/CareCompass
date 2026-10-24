@@ -1,3 +1,4 @@
+import json
 import math
 import os
 import pandas as pd
@@ -15,7 +16,10 @@ CAREGIVER_DF = pd.read_csv(CSV_PATH)
 
 # Clean active flag
 CAREGIVER_DF["active"] = CAREGIVER_DF["active"].astype(str).str.lower().isin(["true", "1"])
-CAREGIVER_RECORDS: List[Dict[str, Any]] = CAREGIVER_DF.to_dict(orient="records")
+# Round-trip through pandas' own JSON serializer so numpy types (int64,
+# float64, bool_) become plain Python types the stdlib json encoder can
+# handle — FastAPI's response serialization otherwise 500s on this.
+CAREGIVER_RECORDS: List[Dict[str, Any]] = json.loads(CAREGIVER_DF.to_json(orient="records"))
 CAREGIVER_PROFILES = CAREGIVER_RECORDS
 
 ROLE_MAP = {
