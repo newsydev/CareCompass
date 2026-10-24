@@ -438,10 +438,9 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
               void persist([...history, { role: 'user', content: 'Record demo ambulance and hospital preferences' }, { role: 'assistant', content: summary }], true, null, null)
               setResult(null)
             }} />
+            {result?.assessment && <AssessmentCard assessment={result.assessment} />}
           </div>
         )}
-
-        {result?.assessment && (!isEmergency || result.assessment.level === 'emergency') && <AssessmentCard assessment={result.assessment} />}
 
         {isDecided && !isEmergency && (
           <>
@@ -512,6 +511,12 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
               <BookingConfirmation booking={booking} language={uiLanguage} cancelling={bookingBusy} onCancel={handleCancelBooking} />
             )}
             {bookingError && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{bookingError}</p>}
+
+            {result?.assessment && (
+              <div className="mt-2">
+                <AssessmentCard assessment={result.assessment} />
+              </div>
+            )}
           </>
         )}
       </div>
