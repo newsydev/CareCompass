@@ -19,7 +19,7 @@ Services offered:
 Decision Criteria:
 - IF the user request is vague, missing the core concern or who it is for (e.g., "doctor chahiye", "nurse bhej do", "I want to book something for my mother", "need medical help"):
   - "is_complete": false
-  - "follow_up_question": Generate a polite question asking for the main concern/symptom and who it is for (e.g., "Happy to help — who is this for and what's the main concern (fever, injury, a lab test, or just a doctor consult)?")
+  - "follow_up_question": Ask which care service is needed, with simple examples (e.g., "How can we help today? You can request a home checkup for fever, nursing for wound dressing, a lab test at home, or a doctor consultation. Tell us what you need and whether the care is for you or someone else."). Do not invent the user's identity, location, or address.
 - IF the user mentions an emergency OR specifies their concern / symptoms / procedure (e.g. "chest pain ho raha hai", "doctor prescribed an injection, can someone come home", "Grandmother has a bedsore that needs dressing", "papa ko do din se bukhar hai aur khansi bhi"):
   - "is_complete": true
   - "follow_up_question": null
@@ -50,13 +50,14 @@ def fallback_heuristic_extraction(user_input: str) -> ExtractedEntities:
     vague_phrases = ["doctor chahiye", "nurse bhej do", "help chahiye", "madad", "book something", "need help", "booking", "consult"]
     is_vague = any(p in text for p in vague_phrases) and len(text.split()) <= 4
 
+    duration = re.search(r"\b(?:\d+|one|two|three|four|five|ek|do|teen)\s*(?:days?|hours?|weeks?|months?|din|ghante)\b", text)
     if is_vague or len(text.split()) <= 2:
         return ExtractedEntities(
             patient=None,
             symptoms=[],
-            duration=None,
+            duration=duration.group(0) if duration else None,
             is_complete=False,
-            follow_up_question="Happy to help — who is this for and what's the main concern (fever, injury, a lab test, or just a doctor consult)?"
+            follow_up_question="How can we help today? You can request a home checkup for fever, nursing for wound dressing, a lab test at home, or a doctor consultation. Tell us what you need and whether the care is for you or someone else."
         )
 
     # Detect patient
@@ -79,7 +80,7 @@ def fallback_heuristic_extraction(user_input: str) -> ExtractedEntities:
     return ExtractedEntities(
         patient=patient,
         symptoms=symptoms or ["general symptom"],
-        duration="several days",
+        duration=duration.group(0) if duration else None,
         is_complete=True,
         follow_up_question=None
     )

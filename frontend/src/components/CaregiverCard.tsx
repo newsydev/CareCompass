@@ -1,5 +1,6 @@
 import type { CaregiverProfile } from '../api/types'
 import { humanizeSlug } from '../utils/humanize'
+import { STRINGS, type UiLanguage } from '../utils/i18n'
 
 interface CaregiverCardProps {
   matchScore: number
@@ -7,6 +8,8 @@ interface CaregiverCardProps {
   profile: CaregiverProfile | undefined
   caregiverId: string
   onBook: () => void
+  language?: UiLanguage
+  disabled?: boolean
 }
 
 export function CaregiverCard({
@@ -15,7 +18,10 @@ export function CaregiverCard({
   profile,
   caregiverId,
   onBook,
+  language = 'en',
+  disabled = false,
 }: CaregiverCardProps) {
+  const t = STRINGS[language]
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-gray-200 p-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
@@ -31,14 +37,15 @@ export function CaregiverCard({
           )}
         </div>
         <p className="mt-1 text-sm text-gray-600">{matchReason}</p>
-        <p className="mt-0.5 text-xs text-gray-400">Match confidence {Math.round(matchScore * 100)}%</p>
+        <p className="mt-0.5 text-xs text-gray-400">{t.matchScore} {Math.round(matchScore * 100)}%</p>
       </div>
       <button
         type="button"
         onClick={onBook}
-        className="shrink-0 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-600 active:bg-brand-700"
+        disabled={disabled}
+        className="shrink-0 disabled:opacity-50 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-600 active:bg-brand-700"
       >
-        Book
+        {t.book}
       </button>
     </div>
   )

@@ -13,10 +13,11 @@ export function EmergencyBanner({ redFlags, reasoning }: EmergencyBannerProps) {
           🚨
         </span>
         <div>
-          <h2 className="text-xl font-bold text-red-700">This looks like an emergency</h2>
+          <h2 className="text-xl font-bold text-red-700">{redFlags.length ? 'Possible emergency: get help now' : 'Emergency assistance'}</h2>
           <p className="mt-1 text-red-700">
             Please call for help immediately. Do not wait for a caregiver match.
           </p>
+          <p className="mt-2 text-sm font-semibold text-red-700">This app has not contacted emergency services or dispatched an ambulance.</p>
         </div>
       </div>
 

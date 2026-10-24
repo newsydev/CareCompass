@@ -11,3 +11,5 @@ venv/
 .gitignore
 .vscode/
 .idea/
+data/*.sqlite3*
+predictions*.csv

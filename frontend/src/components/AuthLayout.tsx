@@ -8,7 +8,7 @@ interface AuthLayoutProps {
 
 export function AuthLayout({ illustration, tagline, children }: AuthLayoutProps) {
   return (
-    <div className="min-h-dvh bg-brand-50 md:flex md:items-center md:justify-center md:p-6">
+    <div className="h-full overflow-y-auto bg-brand-50 p-4 md:flex md:items-start md:justify-center md:p-6">
       <div className="mx-auto w-full md:max-w-5xl md:overflow-hidden md:rounded-2xl md:shadow-xl md:grid md:grid-cols-2 bg-white">
         {/* Mobile header — compact brand strip, shown only below md */}
         <div className="flex items-center gap-3 bg-brand-500 px-6 py-5 md:hidden">

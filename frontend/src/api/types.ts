@@ -8,6 +8,9 @@ export interface Location {
 export interface ConversationTurn {
   role: 'user' | 'assistant'
   content: string
+  patientContext?: PatientContext
+  location?: Location
+  result?: TriageResponse
 }
 
 export interface TriageRequest {
@@ -15,12 +18,68 @@ export interface TriageRequest {
   language?: string
   location?: Location | null
   conversation_history?: ConversationTurn[]
+  patient_context?: PatientContext
+}
+
+export interface Vitals {
+  temperature_c?: number
+  oxygen_percent?: number
+  heart_rate?: number
+  systolic_bp?: number
+  diastolic_bp?: number
+  respiratory_rate?: number
+}
+
+export interface PatientContext {
+  age_years?: number
+  medical_history: string
+  pregnant: boolean
+  immunocompromised: boolean
+  vitals: Vitals
+}
+
+export interface SafetyAssessment {
+  level: 'emergency' | 'clinician_review' | 'self_care_support'
+  summary: string
+  possible_categories: string[]
+  risk_factors: string[]
+  critical_signs: string[]
+  next_steps: string[]
+  supportive_steps: string[]
+  missing_information: string[]
+  requires_prompt_review: boolean
+  blocks_home_booking?: boolean
+  viral_status: string
+  disclaimer: string
+}
+
+export interface DemoHospital {
+  hospital_id: string
+  name: string
+  area: string
+  distance_km: number | null
+  availability: 'not_verified'
+  is_demo: true
 }
 
 export interface CaregiverMatch {
   caregiver_id: string
   score: number
   reason: string
+  next_available?: string | null
+}
+
+export interface Booking {
+  booking_id: string
+  chat_id: string | null
+  caregiver_id: string
+  caregiver_name: string | null
+  care_type: string
+  urgency: string | null
+  slot_start: string
+  status: 'confirmed_demo' | 'cancelled'
+  created_at: string
+  is_demo: true
 }
 
 export interface TriageResponse {
@@ -30,6 +89,9 @@ export interface TriageResponse {
   red_flags: string[]
   reasoning: string | null
   matched_caregivers: CaregiverMatch[]
+  matching_note?: string | null
+  detected_language?: string | null
+  assessment?: SafetyAssessment | null
 }
 
 // Raw record shape from GET /api/caregivers (backend/app/data/caregivers.csv columns)

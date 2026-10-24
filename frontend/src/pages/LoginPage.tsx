@@ -1,15 +1,18 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import doctorsTeam from '../assets/doctors-team.webp'
+import doctorsTeam from '../assets/doctors-team.png'
 import { AuthLayout } from '../components/AuthLayout'
+import { useDemoSession } from '../hooks/useDemoSession'
 
 export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const navigate = useNavigate()
+  const { login, busy } = useDemoSession()
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    navigate('/triage')
+    const form = new FormData(e.currentTarget)
+    if (await login(String(form.get('email') ?? ''), String(form.get('password') ?? ''))) navigate('/triage')
   }
 
   return (
@@ -18,12 +21,14 @@ export function LoginPage() {
       tagline="Welcome back. Your caregivers are ready when you are."
     >
       <h1 className="text-2xl font-semibold text-gray-900">Log In</h1>
+      <p className="mt-2 text-sm text-gray-500">Log in to your password-protected account. Every login starts a new chat; your profile and past conversations are saved in the CareCompass database.</p>
 
       <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
         <label className="flex flex-col gap-1.5 text-sm text-gray-600">
           Email
           <input
             type="email"
+            required
             name="email"
             autoComplete="email"
             className="rounded-lg border border-gray-200 px-3.5 py-2.5 text-gray-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
@@ -37,6 +42,8 @@ export function LoginPage() {
             <input
               type={showPassword ? 'text' : 'password'}
               name="password"
+              required
+              maxLength={256}
               autoComplete="current-password"
               className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 pr-10 text-gray-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
               placeholder="Your password"
@@ -53,16 +60,15 @@ export function LoginPage() {
         </label>
 
         <div className="flex justify-end">
-          <a href="#" className="text-sm font-medium text-brand-600 hover:text-brand-700">
-            Forgot password?
-          </a>
+          <span className="text-xs text-gray-500">Previously used demo emails need a new account. Password reset is not available yet.</span>
         </div>
 
         <button
           type="submit"
+          disabled={busy}
           className="mt-1 rounded-lg bg-brand-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-600 active:bg-brand-700"
         >
-          Log In
+          {busy ? 'Logging in...' : 'Log In'}
         </button>
       </form>
 

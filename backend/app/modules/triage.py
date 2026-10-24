@@ -11,7 +11,17 @@ TAXONOMY_PATH = DATA_DIR / "taxonomy.json"
 with open(TAXONOMY_PATH, "r", encoding="utf-8") as f:
     TAXONOMY_DATA = json.load(f)
 
-RED_FLAG_TRIGGERS: Dict[str, List[str]] = TAXONOMY_DATA.get("red_flag_triggers", {})
+RED_FLAG_TRIGGERS: Dict[str, List[str]] = {key: list(value) for key, value in TAXONOMY_DATA.get("red_flag_triggers", {}).items()}
+# Common inflections missing from the provided taxonomy; safety favours recall.
+SUPPLEMENTARY_TRIGGERS: Dict[str, List[str]] = {
+    "breathlessness": ["breathless", "short of breath", "can't breathe", "cannot breathe", "trouble breathing",
+                       "saans phool", "saans phul", "saans nahi le pa", "saans lene mein taklif", "सांस फूल", "सांस नहीं ले पा"],
+    "chest_pain": ["chest tightness", "seene mein dard", "seene me dard", "सीने में तेज दर्द"],
+    "unconsciousness": ["passed out", "hosh nahi", "होश नहीं"],
+}
+for _flag, _terms in SUPPLEMENTARY_TRIGGERS.items():
+    RED_FLAG_TRIGGERS.setdefault(_flag, [])
+    RED_FLAG_TRIGGERS[_flag].extend(term for term in _terms if term not in RED_FLAG_TRIGGERS[_flag])
 
 POSITIVE_EMERGENCY_NEGATIONS = [
     "saans nahi", "jawab nahi", "response nahi", "ruk nahi", "nahi ruk", "nahi aa rahi",
@@ -31,23 +41,19 @@ def is_negated_match(full_text: str, start_idx: int, end_idx: int) -> bool:
     Checks if a detected red flag keyword is actually negated (e.g. 'no chest pain', 'chest pain nahi hai').
     Protects true emergency phrases that contain 'nahi' (e.g. 'saans nahi aa rahi', 'jawab nahi de rahe').
     """
-    snippet = full_text[max(0, start_idx - 25):min(len(full_text), end_idx + 30)].lower()
-    if any(p in snippet for p in POSITIVE_EMERGENCY_NEGATIONS):
+    matched_text = full_text[start_idx:end_idx].lower()
+    if any(p in matched_text for p in POSITIVE_EMERGENCY_NEGATIONS):
         return False
 
-    preceding = full_text[max(0, start_idx - 18):start_idx].lower()
-    following = full_text[end_idx:min(len(full_text), end_idx + 18)].lower()
-
-    # Preceding negation: "no chest pain", "without difficulty breathing"
-    if any(re.search(r"\b" + re.escape(n) + r"\b", preceding) for n in ["no", "without", "bina", "zero", "negative"]):
+    preceding = full_text[max(0, start_idx - 60):start_idx].lower()
+    following = full_text[end_idx:min(len(full_text), end_idx + 30)].lower()
+    if re.search(r"\b(?:no|without|denies|denied|not having|not|do not have|does not have|negative for|bina|zero)\s+(?:(?:a|an|any|current|new|the|severe|significant)\s+)*$", preceding):
         return True
-    if any(n in preceding for n in ["बिना", "कोई नहीं"]):
+    if re.search(r"(?:बिना|कोई नहीं)\s*$", preceding):
         return True
-
-    # Trailing negation: "chest pain nahi hai", "chest pain absent"
-    if any(re.search(r"\b" + re.escape(n) + r"\b", following) for n in ["nahi", "nahin", "nhi", "absent", "negative"]):
+    if re.search(r"^\s*(?:(?:is|was|are|hai|hain|bilkul)\s+)*(?:nahi|nahin|nhi|absent|negative)\b", following):
         return True
-    if any(n in following for n in ["नहीं है", "नहीं था"]):
+    if re.search(r"^\s*(?:नहीं है|नहीं था)", following):
         return True
 
     return False
@@ -127,7 +133,7 @@ async def evaluate_triage(
             "care_type": "emergency_112",
             "urgency": "emergency",
             "red_flags": red_flags,
-            "reasoning": f"Critical emergency red flags detected ({flags_formatted}). Escalated to 112 emergency services.",
+            "reasoning": f"Potential emergency warning signs detected ({flags_formatted}). Call 112 now; no service has been contacted by this app.",
             "is_emergency": True
         }
 
