@@ -15,19 +15,21 @@ services:
       - backend/.env
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
+      interval: 15s
+      timeout: 5s
       retries: 3
+      start_period: 5s
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-}
     container_name: carecompass_frontend
     restart: unless-stopped
     ports:
       - "5173:5173"
-    environment:
-      - BACKEND_URL=http://backend:8000
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
