@@ -28,11 +28,20 @@ def detect_red_flags(raw_input: str, symptoms: List[str]) -> List[str]:
 
     for flag_name, trigger_phrases in RED_FLAG_TRIGGERS.items():
         for trigger in trigger_phrases:
-            pattern = r"\b" + re.escape(trigger.lower()) + r"\b"
-            if re.search(pattern, combined_text):
-                if flag_name not in detected:
-                    detected.append(flag_name)
-                break
+            trigger_lower = trigger.lower()
+            # If trigger contains non-ASCII characters (e.g. Devanagari Hindi script), use direct substring match
+            # because standard \b word boundaries only apply to ASCII characters in python regex.
+            if any(ord(c) > 127 for c in trigger_lower):
+                if trigger_lower in combined_text:
+                    if flag_name not in detected:
+                        detected.append(flag_name)
+                    break
+            else:
+                pattern = r"\b" + re.escape(trigger_lower) + r"\b"
+                if re.search(pattern, combined_text):
+                    if flag_name not in detected:
+                        detected.append(flag_name)
+                    break
 
     return detected
 
