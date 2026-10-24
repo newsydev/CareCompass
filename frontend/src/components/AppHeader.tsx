@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useDemoSession } from '../hooks/useDemoSession'
+import { InstallPwaButton } from './InstallPwaButton'
 
 export function AppHeader() {
   const { profile, logout, error, busy, saving } = useDemoSession()
@@ -15,7 +16,9 @@ export function AppHeader() {
         <span className="font-semibold text-gray-900">CareCompass</span>
         <span className="hidden rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800 sm:inline">Demo</span>
       </Link>
-      <nav className="flex shrink-0 items-center gap-3 text-sm" aria-label="Account">
+      <div className="flex shrink-0 items-center gap-2 sm:gap-3 text-sm">
+        <InstallPwaButton />
+        <nav className="flex items-center gap-2 sm:gap-3 text-sm" aria-label="Account">
         {profile ? (
           <>
             <Link to="/profile" className="flex items-center gap-2 font-medium text-gray-700" aria-label={`${profile.name} profile`}>
@@ -31,6 +34,7 @@ export function AppHeader() {
           </>
         )}
       </nav>
+      </div>
       {error && <p role="alert" className="absolute inset-x-0 top-16 border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</p>}
     </header>
   )
