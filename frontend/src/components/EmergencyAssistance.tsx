@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { getDemoHospitals } from '../api/careNavigation'
+import { generateUUID } from '../utils/uuid'
 import type { Location } from '../api/types'
 
 interface EmergencyAssistanceProps {
@@ -28,7 +29,7 @@ export function EmergencyAssistance({ location, address, onRecord, disabled }: E
     const destination = choice === 'dispatcher'
       ? 'Dispatcher to choose an appropriate hospital; availability unknown'
       : choice === 'preferred' ? `Preferred hospital: ${preferred.trim()} (not verified)` : `${hospital?.name ?? 'Hospital preference not verified'} (fictional demo facility)`
-    const text = `Demo ambulance request ${crypto.randomUUID().slice(0, 8)}\nPickup: ${pickup.trim()}\nDestination preference: ${destination}.\nNo ambulance has been dispatched, no hospital has accepted a patient, and no availability or ETA is confirmed. Call 112 or 102 now for real assistance.`
+    const text = `Demo ambulance request ${generateUUID().slice(0, 8)}\nPickup: ${pickup.trim()}\nDestination preference: ${destination}.\nNo ambulance has been dispatched, no hospital has accepted a patient, and no availability or ETA is confirmed. Call 112 or 102 now for real assistance.`
     setSummary(text)
     onRecord(text)
   }

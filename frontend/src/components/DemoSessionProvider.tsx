@@ -4,12 +4,13 @@ import { DemoSessionContext } from '../hooks/useDemoSession'
 import { accountError, authenticate, endSession, importDemo, loadAccount, putChat, putProfile, type AccountData } from '../api/accounts'
 import { getLegacyProfile, type DemoProfile } from '../utils/demoProfile'
 import { getDemoChats, type DemoChat } from '../utils/chatHistory'
+import { generateUUID } from '../utils/uuid'
 
 export function DemoSessionProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<DemoProfile | null>(null)
   const [chats, setChats] = useState<DemoChat[]>([])
   const chatsRef = useRef<DemoChat[]>([])
-  const [activeChatId, setActiveChatId] = useState<string>(() => crypto.randomUUID())
+  const [activeChatId, setActiveChatId] = useState<string>(() => generateUUID())
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -23,7 +24,7 @@ export function DemoSessionProvider({ children }: { children: ReactNode }) {
     setProfile(data?.profile ?? null)
     chatsRef.current = data?.chats ?? []
     setChats(chatsRef.current)
-    setActiveChatId(crypto.randomUUID())
+    setActiveChatId(generateUUID())
     setError(null)
   }
 
@@ -142,7 +143,7 @@ export function DemoSessionProvider({ children }: { children: ReactNode }) {
     <DemoSessionContext.Provider value={{
       profile, chats, activeChatId, loading, busy, saving, error,
       login, logout, updateProfile, saveChat, importLegacy, selectChat,
-      newChat: () => selectChat(crypto.randomUUID()),
+      newChat: () => selectChat(generateUUID()),
     }}>
       {children}
     </DemoSessionContext.Provider>
