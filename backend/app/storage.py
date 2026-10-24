@@ -106,3 +106,19 @@ def initialize_database():
                 PRAGMA user_version = 2;
                 COMMIT;
             """)
+
+        # Ensure demo user is seeded for testing
+        demo_user = db.execute("SELECT id FROM users WHERE email = 'test@carecompass.demo'").fetchone()
+        if not demo_user:
+            import hashlib, secrets
+            salt = secrets.token_hex(16)
+            digest = hashlib.pbkdf2_hmac("sha256", b"CareCompass123!", bytes.fromhex(salt), 600000)
+            hashed = f"pbkdf2_sha256$600000${salt}${digest.hex()}"
+            uid = "00000000-0000-0000-0000-000000000001"
+            now = "2026-01-01T00:00:00Z"
+            db.execute("INSERT INTO users VALUES (?, ?, ?, ?)", (uid, "test@carecompass.demo", hashed, now))
+            db.execute(
+                "INSERT INTO profiles(user_id, name, address, age_years, medical_history, pregnant, immunocompromised) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (uid, "Demo Patient", "A-12, Sector 62, Noida, UP", 38.0, "No chronic conditions, seasonal allergies", 0, 0),
+            )

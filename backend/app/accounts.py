@@ -21,39 +21,17 @@ SESSION_SECONDS = 7 * 24 * 60 * 60
 
 
 def allowed_origins():
-    configured = os.environ.get("CARECOMPASS_ORIGINS", "")
-    if configured:
-        return [value.strip() for value in configured.split(",") if value.strip()]
-    return [
-        "http://localhost:8080",
-        "http://127.0.0.1:8080",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
-    ]
+    return [value.strip() for value in os.environ.get(
+        "CARECOMPASS_ORIGINS",
+        "http://localhost:5174,http://127.0.0.1:5174",
+    ).split(",") if value.strip()]
 
 
 def check_origin(request: Request):
-    if request.method in ("GET", "HEAD", "OPTIONS"):
-        return
-    origins = allowed_origins()
-    if "*" in origins:
-        return
-    origin = request.headers.get("origin")
-    if not origin:
-        return
-    # If origin matches Host header (e.g. reverse proxy via Nginx)
-    host = request.headers.get("host")
-    if host and (origin == f"http://{host}" or origin == f"https://{host}"):
-        return
-    if origin in origins:
-        return
-    # Allow local loopback and standard RFC1918 private LAN IP ranges for mobile testing
-    clean_host = origin.replace("http://", "").replace("https://", "").split(":")[0]
-    if clean_host in ("localhost", "127.0.0.1") or clean_host.startswith(("192.168.", "10.", "172.")):
-        return
-    raise HTTPException(403, f"This request origin is not allowed: {origin}")
+    if request.method not in ("GET", "HEAD", "OPTIONS"):
+        origin = request.headers.get("origin")
+        if origin and origin not in allowed_origins():
+            raise HTTPException(403, "This request origin is not allowed.")
 
 
 router = APIRouter(prefix="/api", dependencies=[Depends(check_origin)])

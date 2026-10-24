@@ -11,7 +11,7 @@ services:
     environment:
       - GROQ_API_KEY=${GROQ_API_KEY:-}
       - CARECOMPASS_DB_PATH=/var/lib/carecompass/carecompass.sqlite3
-      - CARECOMPASS_ORIGINS=http://localhost:8080,http://127.0.0.1:8080,http://localhost:5173,http://127.0.0.1:5173
+      - CARECOMPASS_ORIGINS=http://localhost:8080,http://127.0.0.1:8080,http://localhost:5173,http://127.0.0.1:5173,http://192.168.161.179:8080,http://192.168.161.179:5173
     env_file:
       - path: backend/.env
         required: false
