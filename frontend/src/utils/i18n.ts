@@ -64,11 +64,17 @@ const CARE_LABELS: Record<UiLanguage, Record<string, string>> = {
     paramedic_home_visit: 'Medic home visit', home_nursing: 'Home nursing', lab_test_home: 'Lab test at home',
     teleconsultation: 'Doctor teleconsultation', emergency_112: 'Emergency (call 112)',
     same_day: 'Same day', scheduled: 'Scheduled', emergency: 'Emergency',
+    chest_pain: 'Chest pain', breathlessness: 'Breathlessness', unconsciousness: 'Unconsciousness',
+    severe_bleeding: 'Severe bleeding', stroke_symptoms: 'Stroke signs', seizure: 'Seizure',
+    high_fever_infant: 'Infant high fever', suicidal_ideation: 'Suicidal ideation', severe_dehydration: 'Severe dehydration',
   },
   hi: {
     paramedic_home_visit: 'घर पर मेडिक विज़िट', home_nursing: 'घर पर नर्सिंग', lab_test_home: 'घर पर लैब टेस्ट',
     teleconsultation: 'डॉक्टर से ऑनलाइन सलाह', emergency_112: 'इमरजेंसी (112 पर कॉल करें)',
     same_day: 'आज ही', scheduled: 'निर्धारित समय पर', emergency: 'इमरजेंसी',
+    chest_pain: 'सीने में दर्द', breathlessness: 'सांस लेने में तकलीफ', unconsciousness: 'बेहोशी',
+    severe_bleeding: 'गंभीर रक्तस्राव', stroke_symptoms: 'स्ट्रोक के लक्षण', seizure: 'दौरा',
+    high_fever_infant: 'शिशु को तेज बुखार', suicidal_ideation: 'आत्मघाती विचार', severe_dehydration: 'गंभीर निर्जलीकरण',
   },
 }
 

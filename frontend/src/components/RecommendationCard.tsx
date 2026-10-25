@@ -1,5 +1,6 @@
 import { urgencyBadgeClass } from '../utils/humanize'
 import { careLabel, type UiLanguage } from '../utils/i18n'
+import { translateReasoning } from '../utils/chatSummary'
 
 interface RecommendationCardProps {
   careType: string | null
@@ -19,7 +20,11 @@ export function RecommendationCard({ careType, urgency, reasoning, language = 'e
           {careLabel(urgency, language)}
         </span>
       </div>
-      {reasoning && <p className="mt-3 text-gray-700">{reasoning}</p>}
+      {reasoning && (
+        <p className="mt-3 text-gray-700">
+          {language === 'hi' ? translateReasoning(reasoning, 'hi') : reasoning}
+        </p>
+      )}
     </div>
   )
 }
