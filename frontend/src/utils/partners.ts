@@ -64,17 +64,22 @@ export function sortPartners<T extends PartnerLike>(list: T[]): T[] {
   })
 }
 
-export function filterPartners<T extends PartnerLike>(list: T[], role: string | null, query: string): T[] {
+/** `extraText` adds localized text (e.g. Devanagari name/role/skills) to what the query is matched against. */
+export function filterPartners<T extends PartnerLike>(
+  list: T[], role: string | null, query: string, extraText?: (partner: T) => Array<string | null | undefined>,
+): T[] {
   const q = query.trim().toLowerCase()
   return list.filter((p) => {
     if (role && p.role !== role) return false
     if (!q) return true
-    const hay = [p.name, p.qualification, p.base_area, roleLabel(p.role), ...parseList(p.skills).flatMap((s) => [s, skillLabel(s)])]
+    const hay = [p.name, p.qualification, p.base_area, roleLabel(p.role), ...parseList(p.skills).flatMap((s) => [s, skillLabel(s)]), ...(extraText?.(p) ?? [])]
       .filter(Boolean).join(' ').toLowerCase()
     return hay.includes(q)
   })
 }
 
-export function visiblePartners<T extends PartnerLike>(list: T[] | undefined | null, role: string | null, query: string): T[] {
-  return sortPartners(filterPartners(activePartners(list), role, query))
+export function visiblePartners<T extends PartnerLike>(
+  list: T[] | undefined | null, role: string | null, query: string, extraText?: (partner: T) => Array<string | null | undefined>,
+): T[] {
+  return sortPartners(filterPartners(activePartners(list), role, query, extraText))
 }

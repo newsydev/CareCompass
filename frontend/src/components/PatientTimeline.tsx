@@ -136,11 +136,11 @@ export function PatientTimeline({ profile, chats }: PatientTimelineProps) {
   return (
     <div className="flex flex-col gap-6">
       {/* Patient Health Summary Card */}
-      <div className="rounded-2xl border border-sky-100 bg-gradient-to-r from-sky-50 via-blue-50 to-indigo-50 p-5 shadow-sm">
+      <div className="rounded-3xl border border-brand-100 bg-brand-50 p-5 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-600 text-white font-bold shadow-sm">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white font-bold shadow-sm">
                 {profile.name.charAt(0).toUpperCase()}
               </span>
               <div>
@@ -152,8 +152,8 @@ export function PatientTimeline({ profile, chats }: PatientTimelineProps) {
               </div>
             </div>
             {profile.medicalHistory && (
-              <div className="mt-3 flex items-start gap-1.5 text-xs text-slate-700 bg-white/70 rounded-lg p-2.5 border border-sky-100">
-                <span className="font-semibold text-sky-800 shrink-0">Medical History:</span>
+              <div className="mt-3 flex items-start gap-1.5 text-xs text-gray-700 bg-white/70 rounded-xl p-2.5 border border-brand-100">
+                <span className="font-semibold text-brand-800 shrink-0">Medical History:</span>
                 <span className="line-clamp-2">{profile.medicalHistory}</span>
               </div>
             )}
@@ -163,7 +163,7 @@ export function PatientTimeline({ profile, chats }: PatientTimelineProps) {
             <button
               type="button"
               onClick={() => window.print()}
-              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-xs"
+              className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition shadow-xs"
               title="Print official patient medical record"
             >
               <span>🖨️</span>
@@ -171,7 +171,7 @@ export function PatientTimeline({ profile, chats }: PatientTimelineProps) {
             </button>
             <Link
               to="/triage"
-              className="flex items-center gap-1.5 rounded-lg bg-sky-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-sky-700 transition shadow-xs"
+              className="flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-brand-700 transition shadow-xs"
             >
               <span>💬</span>
               <span>New Triage Chat</span>
@@ -180,9 +180,9 @@ export function PatientTimeline({ profile, chats }: PatientTimelineProps) {
         </div>
 
         {/* Metrics Grid */}
-        <div className="mt-4 grid grid-cols-3 gap-2.5 pt-3 border-t border-sky-100/80">
+        <div className="mt-4 grid grid-cols-3 gap-2.5 pt-3 border-t border-brand-100/80">
           <div className="rounded-xl bg-white/80 p-2.5 text-center shadow-xs">
-            <span className="text-lg font-bold text-sky-700">{totalConsultations}</span>
+            <span className="text-lg font-bold text-brand-700">{totalConsultations}</span>
             <p className="text-[11px] font-medium text-gray-500">Triage Consults</p>
           </div>
           <div className="rounded-xl bg-white/80 p-2.5 text-center shadow-xs">
@@ -198,19 +198,15 @@ export function PatientTimeline({ profile, chats }: PatientTimelineProps) {
 
       {/* Filter Tabs */}
       <div className="flex items-center justify-between border-b border-gray-200 pb-2">
-        <h3 className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
-          <span>📈</span>
-          <span>Longitudinal Medical Timeline</span>
-        </h3>
         <div className="flex items-center gap-1">
           {(['all', 'consultation', 'booking', 'emergency'] as const).map((tab) => (
             <button
               key={tab}
               type="button"
               onClick={() => setFilter(tab)}
-              className={`rounded-lg px-2.5 py-1 text-xs font-semibold capitalize transition ${
+              className={`rounded-xl px-2.5 py-1 text-xs font-semibold capitalize transition ${
                 filter === tab
-                  ? 'bg-sky-600 text-white shadow-xs'
+                  ? 'bg-brand-600 text-white shadow-xs'
                   : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
@@ -226,13 +222,13 @@ export function PatientTimeline({ profile, chats }: PatientTimelineProps) {
       ) : filteredEvents.length === 0 ? (
         <div className="rounded-xl border border-dashed border-gray-200 py-10 text-center">
           <p className="text-sm font-medium text-gray-600">No medical events in this category yet.</p>
-          <p className="mt-1 text-xs text-gray-400">Start a care conversation to record symptoms and bookings.</p>
-          <Link to="/triage" className="mt-3 inline-block rounded-lg bg-sky-600 px-3.5 py-1.5 text-xs font-semibold text-white">
+          <p className="mt-1 text-xs text-gray-600">Start a care conversation to record symptoms and bookings.</p>
+          <Link to="/triage" className="mt-3 inline-block rounded-xl bg-brand-600 px-3.5 py-1.5 text-xs font-semibold text-white">
             Start Consultation
           </Link>
         </div>
       ) : (
-        <div className="relative pl-6 sm:pl-8 space-y-6 before:absolute before:bottom-0 before:top-2 before:left-2 sm:before:left-3 before:w-0.5 before:bg-slate-200">
+        <div className="relative pl-6 sm:pl-8 space-y-6 before:absolute before:bottom-0 before:top-2 before:left-2 sm:before:left-3 before:w-0.5 before:bg-gray-200">
           {filteredEvents.map((evt) => {
             const isExpanded = expandedEventId === evt.id
             const isBooking = evt.type === 'booking'
@@ -249,7 +245,7 @@ export function PatientTimeline({ profile, chats }: PatientTimelineProps) {
                       ? evt.isCancelled
                         ? 'bg-gray-400 text-white text-xs'
                         : 'bg-emerald-500 text-white text-xs'
-                      : 'bg-sky-600 text-white text-xs'
+                      : 'bg-brand-600 text-white text-xs'
                   }`}
                 >
                   {isEmerg ? '🚨' : isBooking ? (evt.isCancelled ? '✕' : '📅') : '🩺'}
@@ -264,7 +260,7 @@ export function PatientTimeline({ profile, chats }: PatientTimelineProps) {
                       ? evt.isCancelled
                         ? 'border-gray-200 bg-gray-50/60 opacity-75'
                         : 'border-emerald-200 bg-emerald-50/40 hover:border-emerald-300'
-                      : 'border-slate-200 bg-white hover:border-sky-300 hover:shadow-xs'
+                      : 'border-gray-200 bg-white hover:border-brand-300 hover:shadow-xs'
                   } p-4`}
                 >
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1 sm:gap-4">
@@ -278,7 +274,7 @@ export function PatientTimeline({ profile, chats }: PatientTimelineProps) {
                                 ? 'bg-red-100 text-red-800'
                                 : evt.urgency === 'same_day'
                                 ? 'bg-amber-100 text-amber-900'
-                                : 'bg-blue-100 text-blue-800'
+                                : 'bg-brand-100 text-brand-800'
                             }`}
                           >
                             {evt.urgency.replace('_', ' ')}
@@ -296,10 +292,10 @@ export function PatientTimeline({ profile, chats }: PatientTimelineProps) {
                           </span>
                         )}
                       </div>
-                      {evt.subtitle && <p className="mt-1 text-xs text-slate-600 italic">{evt.subtitle}</p>}
+                      {evt.subtitle && <p className="mt-1 text-xs text-gray-600 italic">{evt.subtitle}</p>}
                     </div>
 
-                    <time className="text-[11px] font-medium text-slate-400 shrink-0">
+                    <time className="text-[11px] font-medium text-gray-600 shrink-0">
                       {formatDate(evt.timestamp)}
                     </time>
                   </div>
@@ -316,11 +312,11 @@ export function PatientTimeline({ profile, chats }: PatientTimelineProps) {
                   )}
 
                   {/* Action / Toggle */}
-                  <div className="mt-3 flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                  <div className="mt-3 flex items-center justify-between pt-2 border-t border-gray-100 text-xs">
                     <button
                       type="button"
                       onClick={() => setExpandedEventId(isExpanded ? null : evt.id)}
-                      className="font-medium text-sky-700 hover:text-sky-800 flex items-center gap-1"
+                      className="font-medium text-brand-700 hover:text-brand-800 flex items-center gap-1"
                     >
                       <span>{isExpanded ? 'Hide clinical notes ▲' : 'View clinical notes ▼'}</span>
                     </button>
@@ -339,8 +335,8 @@ export function PatientTimeline({ profile, chats }: PatientTimelineProps) {
 
                   {/* Expanded Details */}
                   {isExpanded && evt.details && (
-                    <div className="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-700 border border-slate-200/70">
-                      <p className="font-semibold text-slate-800 mb-1">Clinical Intake & System Evaluation:</p>
+                    <div className="mt-3 rounded-xl bg-gray-50 p-3 text-xs text-gray-700 border border-gray-200/70">
+                      <p className="font-semibold text-gray-800 mb-1">Clinical Intake & System Evaluation:</p>
                       <p className="whitespace-pre-line leading-relaxed">{evt.details}</p>
                     </div>
                   )}

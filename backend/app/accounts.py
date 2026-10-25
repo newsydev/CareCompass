@@ -7,7 +7,7 @@ import secrets
 import sqlite3
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Dict, List, Literal, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -80,11 +80,54 @@ class Profile(BaseModel):
     medicalHistory: str = Field("", max_length=4000)
     pregnant: bool = False
     immunocompromised: bool = False
+    phone: str = Field("", max_length=20)
+    dateOfBirth: str = Field("", max_length=10)
+    gender: str = Field("", max_length=20)
+    bloodGroup: str = Field("", max_length=3)
+    allergies: str = Field("", max_length=1000)
+    pastHistory: str = Field("", max_length=1000)
+    currentMedications: str = Field("", max_length=1000)
+    familyHistory: str = Field("", max_length=1000)
 
     @field_validator("name")
     @classmethod
     def nonblank_name(cls, value):
         return Registration.nonblank_name(value)
+
+    @field_validator("phone")
+    @classmethod
+    def valid_phone(cls, value):
+        value = value.strip()
+        if value and not re.fullmatch(r"\+?[0-9][0-9\s()\-]{5,18}", value):
+            raise ValueError("Enter a valid phone number.")
+        return value
+
+    @field_validator("dateOfBirth")
+    @classmethod
+    def valid_dob(cls, value):
+        if not value:
+            return value
+        try:
+            born = date.fromisoformat(value)
+        except ValueError:
+            raise ValueError("Date of birth must be a real date (YYYY-MM-DD).")
+        if born > date.today() or born.year < 1900:
+            raise ValueError("Date of birth must be between 1900 and today.")
+        return value
+
+    @field_validator("gender")
+    @classmethod
+    def valid_gender(cls, value):
+        if value not in ("", "male", "female", "other", "prefer_not"):
+            raise ValueError("Unsupported gender value.")
+        return value
+
+    @field_validator("bloodGroup")
+    @classmethod
+    def valid_blood_group(cls, value):
+        if value not in ("", "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"):
+            raise ValueError("Unsupported blood group.")
+        return value
 
 
 class Turn(BaseModel):
@@ -143,6 +186,9 @@ def read_profile(db, user):
         email=user["email"], name=row["name"], address=row["address"],
         ageYears=row["age_years"], medicalHistory=row["medical_history"],
         pregnant=bool(row["pregnant"]), immunocompromised=bool(row["immunocompromised"]),
+        phone=row["phone"], dateOfBirth=row["date_of_birth"], gender=row["gender"],
+        bloodGroup=row["blood_group"], allergies=row["allergies"], pastHistory=row["past_history"],
+        currentMedications=row["current_medications"], familyHistory=row["family_history"],
     ).model_dump(exclude_none=True)
 
 
@@ -150,9 +196,13 @@ def write_profile(db, user, profile):
     if profile.email.strip().lower() != user["email"]:
         raise HTTPException(422, "Changing the account email is not supported.")
     db.execute(
-        "UPDATE profiles SET name=?, address=?, age_years=?, medical_history=?, pregnant=?, immunocompromised=? WHERE user_id=?",
+        "UPDATE profiles SET name=?, address=?, age_years=?, medical_history=?, pregnant=?, immunocompromised=?, "
+        "phone=?, date_of_birth=?, gender=?, blood_group=?, allergies=?, past_history=?, current_medications=?, family_history=? "
+        "WHERE user_id=?",
         (profile.name, profile.address.strip(), profile.ageYears, profile.medicalHistory.strip(),
-         profile.pregnant, profile.immunocompromised, user["id"]),
+         profile.pregnant, profile.immunocompromised, profile.phone, profile.dateOfBirth, profile.gender,
+         profile.bloodGroup, profile.allergies.strip(), profile.pastHistory.strip(),
+         profile.currentMedications.strip(), profile.familyHistory.strip(), user["id"]),
     )
 
 
@@ -283,6 +333,23 @@ def update_profile(body: Profile, user=Depends(current_user)):
     with connection() as db:
         write_profile(db, user, body)
         return read_profile(db, user)
+
+
+class AccountDeletion(BaseModel):
+    password: str = Field(min_length=1, max_length=256)
+
+
+@router.delete("/account", status_code=204)
+def delete_account(body: AccountDeletion, request: Request, response: Response, user=Depends(current_user)):
+    """Permanently removes the account; profile, chats, bookings, tickets and documents cascade."""
+    throttle(request, user["email"])
+    with connection() as db:
+        row = db.execute("SELECT password_hash FROM users WHERE id=?", (user["id"],)).fetchone()
+        candidate = password_hash(body.password, row["password_hash"].split("$")[2])
+        if not hmac.compare_digest(row["password_hash"], candidate):
+            raise HTTPException(401, "Password is incorrect. The account was not deleted.")
+        db.execute("DELETE FROM users WHERE id=?", (user["id"],))
+    response.delete_cookie(COOKIE, path="/api", httponly=True, samesite="strict")
 
 
 @router.put("/account/chats/{chat_id}")

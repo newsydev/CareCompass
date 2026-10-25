@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 CONTROLLED_RED_FLAGS = (
     "chest_pain", "breathlessness", "unconsciousness", "severe_bleeding", "stroke_symptoms",
     "seizure", "high_fever_infant", "suicidal_ideation", "severe_dehydration",
+    "poisoning_or_overdose", "life_threatening_violence",
 )
 SAFETY_FLAG_TO_CONTRACT = {"low_reported_oxygen": "breathlessness"}
 MAX_FOLLOW_UPS = 2

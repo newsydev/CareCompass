@@ -15,6 +15,15 @@ export interface DemoProfile {
   medicalHistory: string
   pregnant: boolean
   immunocompromised: boolean
+  // Optional profile-page fields. The backend Profile model does not store these yet.
+  phone?: string
+  dateOfBirth?: string
+  gender?: string
+  bloodGroup?: string
+  allergies?: string
+  pastHistory?: string
+  currentMedications?: string
+  familyHistory?: string
 }
 
 export function saveDemoIdentity(email: string, name?: string) {

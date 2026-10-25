@@ -8,7 +8,7 @@ import {
 
 type Inputs = Partial<Record<keyof Vitals, string>>
 
-const card = 'rounded-2xl border border-gray-200 bg-white shadow-sm'
+const card = 'rounded-3xl border border-gray-100 bg-white shadow-sm'
 const btnPrimary = 'min-h-11 rounded-xl bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600'
 const btnGhost = 'min-h-11 rounded-xl border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600'
 
@@ -49,8 +49,7 @@ function AddSheet({ onSave, onClose }: { onSave: (values: ReturnType<typeof pars
           <h2 id="vitals-sheet-title" className="text-lg font-bold text-gray-900">Add vitals</h2>
           <button type="button" onClick={onClose} aria-label="Close" className="flex size-11 items-center justify-center rounded-full text-2xl text-gray-500 hover:bg-gray-100">&times;</button>
         </div>
-        <p className="mb-4 text-sm text-gray-500">Leave a box empty if you do not know that reading.</p>
-        <form onSubmit={submit} noValidate>
+                <form onSubmit={submit} noValidate>
           <div className="grid grid-cols-2 gap-3">
             {VITAL_FIELDS.map((f) => (
               <label key={f.key} className="block text-xs font-medium text-gray-600">
@@ -83,12 +82,11 @@ export function VitalsSection({ email }: { email: string }) {
   const latest = useMemo(() => latestByMeasure(entries), [entries])
 
   return (
-    <section aria-labelledby="vitals-heading" className="px-4 pt-6 pb-4">
-      <h2 id="vitals-heading" className="mb-3 text-xl font-bold text-gray-900">Vitals</h2>
+    <section aria-labelledby="vitals-heading">
+      <h2 id="vitals-heading" className="mb-3 text-lg font-bold text-gray-900">Vitals</h2>
       {entries.length === 0 ? (
         <div className={`${card} p-5 text-center`}>
           <p className="font-semibold text-gray-900">No vitals added yet</p>
-          <p className="mt-1 text-sm text-gray-500">Add readings you have measured to keep them handy here.</p>
           <button type="button" onClick={() => setOpen(true)} className={`${btnPrimary} mt-4`}>Add vitals</button>
         </div>
       ) : (
@@ -98,7 +96,7 @@ export function VitalsSection({ email }: { email: string }) {
               <li key={m.key} className={`${card} p-3`}>
                 <p className="text-xs font-medium text-gray-500">{m.label}</p>
                 <p className="mt-1 text-2xl font-bold text-gray-900">{m.value} <span className="text-sm font-medium text-gray-500">{m.unit}</span></p>
-                <p className="mt-1 text-[11px] text-gray-400">{formatRecordedAt(m.recordedAt)}</p>
+                <p className="mt-1 text-[11px] text-gray-600">{formatRecordedAt(m.recordedAt)}</p>
               </li>
             ))}
           </ul>
@@ -118,7 +116,7 @@ export function VitalsSection({ email }: { email: string }) {
           )}
         </>
       )}
-      <p className="mt-3 text-xs text-gray-400">Saved only on this device. CareCompass does not interpret these readings.</p>
+      <p className="mt-3 text-xs text-gray-600">Saved on this device only.</p>
       {open && (
         <AddSheet
           onClose={() => setOpen(false)}

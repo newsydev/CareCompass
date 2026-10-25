@@ -108,6 +108,23 @@ class CaregiverMatch(BaseModel):
     reason: str
     next_available: Optional[str] = None
 
+class CrisisHelpline(BaseModel):
+    name: str
+    number: str
+    description: str = ""
+    tel: Optional[str] = None
+    alt_number: Optional[str] = None
+
+class CrisisInfo(BaseModel):
+    """Present only when self-harm, overdose/poisoning or another life threat was detected."""
+    kind: Literal["self_harm_ideation", "self_harm_imminent", "overdose_or_poisoning", "other_life_threat"]
+    source: Literal["current", "history"] = "current"
+    headline: str
+    message: str
+    actions: List[str] = Field(default_factory=list)
+    helplines: List[CrisisHelpline] = Field(default_factory=list)
+    language: Literal["English", "Hindi"] = "English"
+
 class TriageResponse(BaseModel):
     follow_up_question: Optional[str] = None
     care_type: Optional[str] = None
@@ -123,6 +140,7 @@ class TriageResponse(BaseModel):
     questions: List[FollowUpQuestion] = Field(default_factory=list, max_length=3)
     intent: Optional[str] = None
     answered_context: Dict[str, str] = Field(default_factory=dict)
+    crisis: Optional[CrisisInfo] = None
 
 class DemoHospital(BaseModel):
     hospital_id: str

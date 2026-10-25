@@ -9,15 +9,18 @@ import json
 from app.accounts import router as accounts_router, allowed_origins
 from app.storage import initialize_database
 
-from app.schemas import TriageRequest, TriageResponse, Location, DemoHospital, PatientContext
+from app.schemas import TriageRequest, TriageResponse, Location, DemoHospital, PatientContext, SafetyAssessment
 from app.modules.safety import assess_safety
-from app.modules.emergency import list_demo_hospitals
+from app.modules.emergency import list_demo_hospitals, build_crisis_response
+from app.modules.crisis import detect_crisis
 from app.modules.intake import extract_intake
 from app.modules.triage import evaluate_triage, detect_red_flags, get_groq_client, TAXONOMY_DATA
-from app.modules.routing import route_request, contract_red_flags
+from app.modules.routing import route_request, contract_red_flags, detect_language as routing_language
 from app.modules.clarify import decide as clarify
 from app.modules.intent import gate as intent_gate, detect_language, OFF_TOPIC
 from app.bookings import router as bookings_router
+from app.support import router as support_router
+from app.documents import router as documents_router
 from app.modules.matching import match_caregivers, CAREGIVER_PROFILES
 from app.modules.stt import transcribe_audio_bytes
 
@@ -45,6 +48,8 @@ app.add_middleware(
 )
 app.include_router(accounts_router)
 app.include_router(bookings_router)
+app.include_router(support_router)
+app.include_router(documents_router)
 
 ROUTABLE_CARE_TYPES = {"paramedic_home_visit", "home_nursing", "lab_test_home", "teleconsultation"}
 URGENT_CHECK = {
@@ -78,6 +83,22 @@ def emergency_response(assessment, reasoning):
         assessment=assessment,
         action="urgent_guidance",
         message=reasoning,
+    )
+
+def crisis_response(signal, language):
+    info = build_crisis_response(signal, language)
+    text = f"{info['headline']} {info['message']}"
+    assessment = SafetyAssessment(
+        level="emergency", summary=info["headline"],
+        possible_categories=[], critical_signs=[info["red_flag"]],
+        next_steps=info["actions"], supportive_steps=[], requires_prompt_review=True,
+        blocks_home_booking=True, viral_status="", disclaimer=info["disclaimer"],
+    )
+    return TriageResponse(
+        care_type="emergency_112", urgency="emergency", red_flags=[info["red_flag"]],
+        reasoning=text, assessment=assessment, action="urgent_guidance", message=text,
+        follow_up_question=None, detected_language=language,
+        crisis={key: info[key] for key in ("kind", "source", "headline", "message", "actions", "helplines", "language")},
     )
 
 @app.get("/")
@@ -147,6 +168,11 @@ async def process_triage(request: TriageRequest) -> TriageResponse:
     """
     try:
         history = request.conversation_history or []
+        # Crisis check comes first: no gate, follow-up question or AI call may delay an emergency alert.
+        answer_text = " ".join(" ".join(value) if isinstance(value, list) else value for value in request.answers.values())
+        crisis = detect_crisis(f"{request.user_input} {answer_text}".strip(), history)
+        if crisis:
+            return crisis_response(crisis, routing_language(request.user_input, request.language))
         prior_inputs = [str(turn.get("content") or turn.get("text") or "") for turn in history if turn.get("role") == "user"]
         clinical_input = "\n".join([*prior_inputs, request.user_input])
         assessment = assess_safety(clinical_input, request.patient_context)

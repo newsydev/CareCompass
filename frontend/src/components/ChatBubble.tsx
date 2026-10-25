@@ -6,24 +6,26 @@ interface ChatBubbleProps {
   onReadAloud?: () => void
   isSpeaking?: boolean
   speechDisabled?: boolean
+  readLabel?: string
+  stopLabel?: string
 }
 
-export function ChatBubble({ role, content, onReadAloud, isSpeaking = false, speechDisabled = false }: ChatBubbleProps) {
+export function ChatBubble({ role, content, onReadAloud, isSpeaking = false, speechDisabled = false, readLabel, stopLabel }: ChatBubbleProps) {
   const isUser = role === 'user'
   return (
-    <div className={`flex flex-col gap-1 ${isUser ? 'items-end' : 'items-start'}`}>
-      <p
-        className={`max-w-[85%] whitespace-pre-line rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-          isUser
-            ? 'rounded-br-sm bg-brand-500 text-white'
-            : 'rounded-bl-sm bg-gray-100 text-gray-800'
+    <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
+      <div
+        className={`max-w-[88%] rounded-2xl px-4 py-2.5 ${
+          isUser ? 'rounded-br-sm bg-brand-700 text-white' : 'rounded-bl-sm bg-gray-100 text-gray-900'
         }`}
       >
-        {content}
-      </p>
-      {!isUser && onReadAloud && (
-        <SpeechButton isSpeaking={isSpeaking} disabled={speechDisabled} onClick={onReadAloud} />
-      )}
+        <p className="whitespace-pre-line break-words text-[15px] leading-relaxed">{content}</p>
+        {!isUser && onReadAloud && (
+          <div className="-mb-1 -ml-2 mt-1">
+            <SpeechButton compact isSpeaking={isSpeaking} disabled={speechDisabled} onClick={onReadAloud} label={readLabel} stopLabel={stopLabel} />
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -4,6 +4,7 @@ import { createBooking } from '../api/bookings'
 import type { Booking, CaregiverMatch, CaregiverProfile } from '../api/types'
 import { STRINGS, type UiLanguage } from '../utils/i18n'
 import { bookingSlots, formatSlot } from '../utils/slots'
+import { localName } from '../utils/localizeNames'
 
 interface BookingPanelProps {
   match: CaregiverMatch
@@ -39,9 +40,9 @@ export function BookingPanel({ match, profile, careType, urgency, chatId, langua
 
   return (
     <div className="rounded-xl border border-brand-200 bg-brand-50 p-4" role="group" aria-label={t.chooseSlot}>
-      <p className="text-sm font-semibold text-gray-900">{profile?.name ?? match.caregiver_id}</p>
+      <p className="text-sm font-semibold text-gray-900">{localName(profile?.name, language) || match.caregiver_id}</p>
       {slots.length === 0 ? (
-        <p className="mt-2 text-sm text-gray-600">No open slot could be calculated for this caregiver.</p>
+        <p className="mt-2 text-sm text-gray-600">{language === 'hi' ? 'इस केयरगिवर के लिए कोई खाली समय नहीं मिला।' : 'No open slot could be calculated for this caregiver.'}</p>
       ) : (
         <label className="mt-2 block text-sm text-gray-700">
           {t.chooseSlot}
@@ -69,7 +70,7 @@ export function BookingConfirmation({ booking, language, onCancel, cancelling }:
     <div role="status" className={`rounded-lg border p-4 text-sm ${active ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-gray-200 bg-gray-50 text-gray-700'}`}>
       <p className="font-semibold">{active ? t.confirmed : t.cancelled}: {booking.booking_id}</p>
       <p className="mt-1">
-        {formatSlot(booking.slot_start, language === 'hi' ? 'hi-IN' : 'en-IN')} · {booking.caregiver_name ?? booking.caregiver_id} {t.bookingFor === 'with' ? '' : t.bookingFor}
+        {formatSlot(booking.slot_start, language === 'hi' ? 'hi-IN' : 'en-IN')} · {localName(booking.caregiver_name, language) || booking.caregiver_id} {t.bookingFor === 'with' ? '' : t.bookingFor}
       </p>
       <p className="mt-1 text-xs">{t.notContacted}</p>
       {active && (

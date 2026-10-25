@@ -29,7 +29,7 @@ function Stethoscope() {
 
 export function OrbCard() {
   return (
-    <section aria-labelledby="home-orb-title" className="flex flex-col items-center rounded-3xl border border-gray-200 bg-white px-6 py-8 text-center shadow-sm">
+    <section aria-labelledby="home-orb-title" className="flex flex-col items-center rounded-3xl border border-gray-100 bg-white px-6 py-8 text-center shadow-sm">
       <style>{css}</style>
       <svg viewBox="0 0 200 200" className="cc-orb size-56 max-w-full" aria-hidden="true" focusable="false">
         <defs>
@@ -50,11 +50,11 @@ export function OrbCard() {
         <circle cx="100" cy="100" r="18" fill="var(--color-brand-100)" opacity="0.9" />
       </svg>
       <h2 id="home-orb-title" className="mt-4 text-2xl font-semibold tracking-[0.2em] text-brand-700">CareCompass</h2>
-      <p className="mt-2 text-xs font-medium uppercase tracking-[0.25em] text-gray-500">Ready to assist</p>
-      <p className="mt-6 text-base text-gray-700">How are you feeling today?</p>
+      <p className="mt-4 text-base text-gray-700">How are you feeling today?</p>
       <Link
-        to="/triage"
-        className="mt-4 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-brand-600 px-6 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+        to="/consult/voice"
+        data-tour="start-consultation"
+        className="mt-4 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-brand-600 px-6 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
       >
         <Stethoscope />
         Start Consultation

@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 
 const svg = { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true } as const
 
@@ -6,8 +6,10 @@ const sideLink = (isActive: boolean) =>
   `flex h-16 flex-col items-center justify-center gap-1 text-xs font-medium transition ${isActive ? 'text-brand-600' : 'text-gray-500 hover:text-brand-600'}`
 
 export function BottomNav() {
+  const { pathname } = useLocation()
+  const consultActive = pathname.startsWith('/consult') || pathname.startsWith('/triage')
   return (
-    <nav aria-label="Main" className="absolute inset-x-0 bottom-0 z-40 border-t border-gray-100 bg-white pb-[env(safe-area-inset-bottom)]">
+    <nav aria-label="Main" data-tour="bottom-nav" className="absolute inset-x-0 bottom-0 z-40 border-t border-gray-100 bg-white pb-[env(safe-area-inset-bottom)]">
       <ul className="grid grid-cols-3 items-end">
         <li>
           <NavLink to="/home" className={({ isActive }) => sideLink(isActive)}>
@@ -19,9 +21,9 @@ export function BottomNav() {
         </li>
         <li className="flex justify-center">
           <NavLink
-            to="/triage"
+            to="/consult"
             aria-label="Consult"
-            className={({ isActive }) => `-mt-6 flex flex-col items-center gap-1 text-xs font-medium ${isActive ? 'text-brand-600' : 'text-gray-500'}`}
+            className={() => `-mt-6 flex flex-col items-center gap-1 text-xs font-medium ${consultActive ? 'text-brand-600' : 'text-gray-500'}`}
           >
             <span className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-500 text-white shadow-lg ring-4 ring-white transition hover:bg-brand-600 active:bg-brand-700">
               <svg {...svg} className="h-7 w-7">

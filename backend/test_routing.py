@@ -197,7 +197,7 @@ class Bookings(unittest.TestCase):
                 db.execute("PRAGMA user_version = 1")
             initialize_database()
             with connection() as db:
-                self.assertEqual(db.execute("PRAGMA user_version").fetchone()[0], 2)
+                self.assertEqual(db.execute("PRAGMA user_version").fetchone()[0], 3)
                 self.assertTrue(db.execute("SELECT name FROM sqlite_master WHERE name = 'bookings'").fetchone())
 
 

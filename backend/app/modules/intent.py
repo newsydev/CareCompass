@@ -18,7 +18,8 @@ from app.modules.clarify import (
 from app.modules.routing import detect_language as _detect_language
 from app.modules.routing import HINGLISH_MARKERS, classify_text
 
-EXTRA_HINGLISH = {"dawai", "dawa", "kaunsi", "konsi", "lun", "loon", "khaun", "batao", "bataiye", "chahiye"}
+EXTRA_HINGLISH = {"dawai", "dawa", "kaunsi", "konsi", "lun", "loon", "khaun", "batao", "bataiye", "chahiye",
+                  "sunao", "yaar", "bhai", "chutkula"}
 INTENTS = ["symptom_report", "health_info", "out_of_scope", "greeting", "prescribe_request", "gibberish"]
 OFF_TOPIC = {"health_info", "out_of_scope", "greeting", "prescribe_request", "gibberish"}
 
@@ -43,6 +44,23 @@ OFF_TOPIC_RE = re.compile(
     r"(?:the )?(?:ceo|founder|king)|news|football|train ticket|flight|horoscope|rashifal)\b",
     re.I,
 )
+# Things that are clearly not health: politics, sport, coding, trivia, entertainment. Devanagari terms carry no \b
+# because matras are not word characters in Python's re.
+OFF_TOPIC_EXTRA_RE = re.compile(
+    r"\b(?:election|politic\w*|who is (?:the )?(?:pm|cm)\b|(?:pm|cm) of|chief minister|modi|kohli|dhoni|world cup|"
+    r"html|css|sql|java|c\+\+|debug|algorithm|chatgpt|gpt|who (?:made|created) you|are you (?:a )?(?:bot|robot|human)|"
+    r"pradhan mantri|mausam|chutkula|gaana|gana|film|shayari|bitcoin|crypto|loan|insurance quote|shopping|discount|"
+    r"pizza|biryani|burger)\b|प्रधानमंत्री|मुख्यमंत्री|चुनाव|क्रिकेट|मौसम|चुटकुला|गाना|फिल्म|शायरी|कविता|पिज़्ज़ा|बिरयानी",
+    re.I,
+)
+# Emotional distress and mental-health statements are health complaints, never "off topic".
+DISTRESS_RE = re.compile(
+    r"\b(?:stress(?:ed)?|anxi(?:ety|ous)|depress(?:ed|ion)|panic|udaa?s|tension|tanav|ghabra\w*|dar\s+lag\w*|"
+    r"neend\s+nahi|nind\s+nahi|sleepless|insomnia|hopeless|lonely|suic\w*|sucid\w*|kill\s+myself|end\s+my\s+life|"
+    r"khud\s*kushi|marna\s+chah\w*|jaan\s+de\w*|(?:feel|feeling)\s+(?:low|sad|empty|worthless)|cant\s+sleep|can't\s+sleep|"
+    r"mann\s+nahi\s+lag\w*|man\s+nahi\s+lag\w*)\b|उदास|तनाव|घबराहट|चिंता|डिप्रेशन|नींद\s*नहीं|अकेला|निराश|आत्महत्या|मरना\s*चाह|डर\s*लग|टेंशन",
+    re.I,
+)
 PRESCRIBE_RE = re.compile(
     r"\b(?:dawai|dawa|dawaiyan|davai|medicine|medicines|medication|tablet|tablets|pill|pills|antibiotic|syrup|drug|dose|dosage|"
     r"paracetamol|crocin|dolo|ibuprofen|aspirin)\b|दवा|दवाई|गोली",
@@ -64,7 +82,7 @@ HEALTH_TERM_RE = re.compile(
     r"\b(?:diabetes|sugar|bp|blood pressure|hypertension|cholesterol|asthma|thyroid|infection|virus|viral|bacteria|cancer|"
     r"heart attack|stroke|dengue|malaria|covid|corona|typhoid|anemia|anaemia|allergy|vitamin|pregnan\w*|disease|symptom\w*|"
     r"immunity|fever|flu|cold|cough|migraine|arthritis|tb|tuberculosis|jaundice|kidney|liver|diarrh\w+|vomit\w*|rash|"
-    r"bukhar|khansi|sardi|zukam|ulti|dast|dard|sugar|bimari|rog)\b|बुखार|खांसी|सर्दी|दर्द|बीमारी|डायबिटीज",
+    r"bukhar|khansi|sardi|zukam|ulti|dast|dard|sugar|bimari|rog|stress|anxiety|depression|insomnia)\b|बुखार|खांसी|सर्दी|दर्द|बीमारी|डायबिटीज|तनाव|डिप्रेशन",
     re.I,
 )
 SYMBOL_ONLY_RE = re.compile(r"^[\W_\d]*$", re.UNICODE)
@@ -112,7 +130,11 @@ def split_injection(text: str) -> tuple:
 
 
 def _has_complaint(text: str) -> bool:
-    return bool(find_symptoms(text) or classify_text(text) or CARE_REQUEST_RE.search(text))
+    return bool(find_symptoms(text) or classify_text(text) or CARE_REQUEST_RE.search(text) or DISTRESS_RE.search(text))
+
+
+def _is_off_topic_text(text: str) -> bool:
+    return bool(OFF_TOPIC_RE.search(text) or OFF_TOPIC_EXTRA_RE.search(text))
 
 
 def rule_intent(text: str) -> Optional[str]:
@@ -122,14 +144,17 @@ def rule_intent(text: str) -> Optional[str]:
         return "gibberish"
     if GREETING_RE.match(cleaned):
         return "greeting"
+    # Distress wins over every off-topic rule below: "I feel sad, tell me a joke" is still a person in distress.
+    if DISTRESS_RE.search(cleaned) and not is_info_question(cleaned):
+        return "symptom_report"
     bare = re.sub(r"^(?:what(?:'s| is)|whats|calculate|solve|compute|kitna hota hai)\s+", "", cleaned, flags=re.I)
     if MATH_RE.match(bare) or MATH_WORDS_RE.search(cleaned):
         return "out_of_scope"
     if PRESCRIBE_RE.search(cleaned) and PRESCRIBE_ASK_RE.search(cleaned):
         return "prescribe_request"
     if is_info_question(cleaned):
-        return "health_info" if (find_symptoms(cleaned) or HEALTH_TERM_RE.search(cleaned)) else ("out_of_scope" if OFF_TOPIC_RE.search(cleaned) else None)
-    if OFF_TOPIC_RE.search(cleaned) and not _has_complaint(cleaned):
+        return "health_info" if (find_symptoms(cleaned) or HEALTH_TERM_RE.search(cleaned)) else ("out_of_scope" if _is_off_topic_text(cleaned) else None)
+    if _is_off_topic_text(cleaned) and not _has_complaint(cleaned):
         return "out_of_scope"
     if _has_complaint(cleaned):
         return "symptom_report"
@@ -142,7 +167,7 @@ class _IntentOut(BaseModel):
 
 INTENT_SYSTEM = """Classify one message sent to CareCompass, a home-care navigation app in India (English, Hindi or Hinglish).
 Return strict JSON: {"intent": "<one of: symptom_report, health_info, out_of_scope, greeting, prescribe_request, gibberish>"}.
-symptom_report: the person or someone they care for has a health problem or needs a care service.
+symptom_report: the person or someone they care for has a health problem or needs a care service. Emotional distress, stress, anxiety, low mood, panic, sleeplessness and any thoughts of self-harm or suicide are ALWAYS symptom_report, never out_of_scope.
 health_info: a general question about a health term, with no personal complaint.
 out_of_scope: not about health (maths, trivia, coding, chit-chat).
 greeting: hello or asking for help in general.
@@ -160,6 +185,8 @@ async def classify_intent(text: str) -> str:
         label = _IntentOut.model_validate(raw or {}).intent.strip().lower()
     except ValidationError:
         return "symptom_report"
+    if label in OFF_TOPIC and DISTRESS_RE.search(text or ""):
+        return "symptom_report"  # the model must never wave away a distressed message
     return label if label in INTENTS else "symptom_report"
 
 

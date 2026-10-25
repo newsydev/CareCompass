@@ -107,7 +107,21 @@ export interface Booking {
   is_demo: true
 }
 
+export interface Helpline {
+  name: string
+  number: string
+  description?: string | null
+}
+
+// Optional: set by the backend when a message suggests the patient may be at risk of self-harm.
+export interface CrisisInfo {
+  kind: string
+  helplines?: Helpline[]
+  message?: string | null
+}
+
 export interface TriageResponse {
+  crisis?: CrisisInfo | null
   follow_up_question: string | null
   care_type: string | null
   urgency: string | null

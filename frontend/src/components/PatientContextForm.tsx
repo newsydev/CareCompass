@@ -11,25 +11,25 @@ interface PatientContextFormProps {
 }
 
 export function PatientContextForm({ value, onChange, recipient, onRecipientChange, disabled, recipientLocked }: PatientContextFormProps) {
-  const inputClass = 'mt-1 min-h-11 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-base text-gray-900'
+  const inputClass = 'mt-1 min-h-11 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-base text-gray-900'
   return (
-    <section className="mt-3 rounded-xl border border-gray-200 bg-white p-3" aria-label="Patient context">
+    <section className="mt-3 rounded-3xl border border-gray-100 bg-white p-4 shadow-sm" aria-label="Patient context">
       <label className="flex flex-wrap items-center gap-2 text-sm font-medium text-gray-700">
         Care is for
         <select
           value={recipient}
           disabled={disabled || recipientLocked}
           onChange={(e) => onRecipientChange(e.target.value === 'self' ? 'self' : 'other')}
-          className="min-h-11 rounded-lg border border-gray-200 bg-white px-3 text-base"
+          className="min-h-11 rounded-xl border border-gray-300 bg-white px-3 text-base"
         >
           <option value="self">Myself (use my profile)</option>
           <option value="other">Someone else (enter their details)</option>
         </select>
       </label>
       <details className="mt-3">
-        <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium text-brand-700">Patient history and vitals (optional)</summary>
+        <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium text-brand-700">Patient history and vitals</summary>
         <fieldset disabled={disabled} className="mt-3 grid gap-3 text-sm text-gray-600">
-          <p className="sm:col-span-2">Leave unknown values blank. Never delay emergency help to fill these in.</p>
+          <p className="sm:col-span-2">Never delay emergency help to fill these in.</p>
           <label>Patient age (years)
             <input type="number" min="0" max="120" step="any" value={value.age_years ?? ''} onChange={(e) => onChange({ ...value, age_years: e.target.value === '' ? undefined : Number(e.target.value) })} className={inputClass} />
           </label>

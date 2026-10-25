@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import doctorsTeam from '../assets/doctors-team.png'
 import { AuthLayout } from '../components/AuthLayout'
+import { authButton, authInput, authToggle } from '../components/authStyles'
 import { useDemoSession } from '../hooks/useDemoSession'
 
 export function LoginPage() {
@@ -20,23 +21,22 @@ export function LoginPage() {
       illustration={doctorsTeam}
       tagline="Welcome back. Your caregivers are ready when you are."
     >
-      <h1 className="text-2xl font-semibold text-gray-900">Log In</h1>
-      <p className="mt-2 text-sm text-gray-500">Log in to your password-protected account. Every login starts a new chat; your profile and past conversations are saved in the CareCompass database.</p>
-
-      <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
-        <label className="flex flex-col gap-1.5 text-sm text-gray-600">
+      <h1 className="text-2xl font-bold text-gray-900">Log In</h1>
+      
+      <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">
+        <label className="flex flex-col gap-1.5 text-sm font-medium text-gray-700">
           Email
           <input
             type="email"
             required
             name="email"
             autoComplete="email"
-            className="rounded-lg border border-gray-200 px-3.5 py-2.5 text-gray-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+            className={authInput}
             placeholder="you@example.com"
           />
         </label>
 
-        <label className="flex flex-col gap-1.5 text-sm text-gray-600">
+        <label className="flex flex-col gap-1.5 text-sm font-medium text-gray-700">
           Password
           <span className="relative">
             <input
@@ -45,36 +45,32 @@ export function LoginPage() {
               required
               maxLength={256}
               autoComplete="current-password"
-              className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 pr-10 text-gray-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+              className={`${authInput} pr-16`}
               placeholder="Your password"
             />
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
-              className="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-600"
+              className={authToggle}
               aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
-              {showPassword ? '🙈' : '👁️'}
+              {showPassword ? 'Hide' : 'Show'}
             </button>
           </span>
         </label>
 
-        <div className="flex justify-end">
-          <span className="text-xs text-gray-500">Previously used demo emails need a new account. Password reset is not available yet.</span>
-        </div>
-
         <button
           type="submit"
           disabled={busy}
-          className="mt-1 rounded-lg bg-brand-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-600 active:bg-brand-700"
+          className={authButton}
         >
           {busy ? 'Logging in...' : 'Log In'}
         </button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-gray-500">
+      <p className="mt-6 text-center text-sm text-gray-600">
         Don&apos;t have an account?{' '}
-        <Link to="/signup" className="font-medium text-brand-600 hover:text-brand-700">
+        <Link to="/signup" className="font-semibold text-brand-700 hover:text-brand-800 focus-visible:outline-2 focus-visible:outline-brand-600">
           Sign up
         </Link>
       </p>

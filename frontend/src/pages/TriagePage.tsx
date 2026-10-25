@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { MenuItem } from '../components/chat/MenuItem'
+import { QUICK_REPLIES, messageSpeechLocale } from '../components/chat/speechLang'
+import { readConsultLang, speechLocale } from '../utils/consultLang'
 import { CaregiverCard } from '../components/CaregiverCard'
 import { ChatBubble } from '../components/ChatBubble'
 import { EmergencyBanner } from '../components/EmergencyBanner'
+import { EmergencyAlert } from '../components/emergency/EmergencyAlert'
+import { emergencyStrings } from '../components/emergency/strings'
+import { detectCrisis } from '../utils/crisis'
 import { FollowUpQuestions } from '../components/FollowUpQuestions'
 import { RecommendationCard } from '../components/RecommendationCard'
 import { SpeechButton } from '../components/SpeechButton'
@@ -26,32 +32,12 @@ import { patientContextFromProfile, validatePatientContext } from '../utils/pati
 import { describeResponse } from '../utils/chatSummary'
 import { ageHint, buildAnswers, composeAnswerText, draftFromAnswers, emptyDraft, isFollowUpResponse, isInformational, offTopicStreak, type Draft } from '../utils/followUp'
 import { DoctorCaseSummary } from '../components/DoctorCaseSummary'
+import { localizeMatchingNote } from '../utils/localizeNames'
 import type { Booking, ConversationTurn, FollowUpAnswers, FollowUpQuestion, PatientContext, TriageResponse } from '../api/types'
-
-type ServiceExample = { label: string; example: string; recipient: 'self' | 'other' }
-const SERVICE_EXAMPLES: Record<UiLanguage, ServiceExample[]> = {
-  en: [
-    { label: 'Home checkup', example: 'I have had a fever for two days and need a home checkup.', recipient: 'self' },
-    { label: 'Nursing at home', example: 'My mother needs a nurse at home for wound dressing.', recipient: 'other' },
-    { label: 'Lab test at home', example: 'I need a blood sample collected at home for a prescribed CBC test.', recipient: 'self' },
-    { label: 'Doctor consultation', example: 'I would like a doctor consultation for a mild rash.', recipient: 'self' },
-  ],
-  hi: [
-    { label: 'घर पर जांच', example: 'मुझे दो दिन से बुखार है, घर पर जांच चाहिए।', recipient: 'self' },
-    { label: 'घर पर नर्सिंग', example: 'मेरी माँ को घाव की ड्रेसिंग के लिए घर पर नर्स चाहिए।', recipient: 'other' },
-    { label: 'घर पर लैब टेस्ट', example: 'डॉक्टर ने CBC टेस्ट लिखा है, घर पर ब्लड सैंपल लेना है।', recipient: 'self' },
-    { label: 'डॉक्टर से सलाह', example: 'हल्के रैश के लिए डॉक्टर से ऑनलाइन सलाह चाहिए।', recipient: 'self' },
-  ],
-}
-
-const WELCOME: Record<UiLanguage, (name: string) => string> = {
-  en: (name) => `Hi ${name}, welcome to CareCompass. How can we help you today? You can request a home checkup, nursing at home, a lab test, or a doctor consultation. For an emergency, call 112 or 102 now; this demo cannot dispatch an ambulance.`,
-  hi: (name) => `नमस्ते ${name}, CareCompass में आपका स्वागत है। आज हम आपकी कैसे मदद करें? आप घर पर जांच, नर्सिंग, लैब टेस्ट या डॉक्टर से सलाह मांग सकते हैं। इमरजेंसी में तुरंत 112 या 102 पर कॉल करें; यह डेमो एम्बुलेंस नहीं भेज सकता।`,
-}
 
 function isEmergencyResponse(response: TriageResponse | null) {
   return response !== null && (response.red_flags.length > 0 || response.care_type === 'emergency_112' ||
-    response.urgency === 'emergency' || response.assessment?.level === 'emergency')
+    response.urgency === 'emergency' || response.assessment?.level === 'emergency' || Boolean(response.crisis))
 }
 
 export function TriagePage({ profile }: { profile: DemoProfile }) {
@@ -67,6 +53,7 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
   const [patientError, setPatientError] = useState<string | null>(null)
   const [emergencyOpen, setEmergencyOpen] = useState(previousChat?.emergency ?? false)
   const emergencyRequested = useRef(previousChat?.emergency ?? false)
+  const [dismissedAlert, setDismissedAlert] = useState<string | null>(null)
   const [address, setAddress] = useState(profile.address)
   const [history, setHistory] = useState<ConversationTurn[]>(previousChat?.messages ?? [])
   const historyRef = useRef(history)
@@ -76,13 +63,22 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
   })
   const [result, setResult] = useState<TriageResponse | null>(previousChat?.result ?? null)
   const [bookedCaregiverId, setBookedCaregiverId] = useState<string | null>(previousChat?.selectedCaregiverId ?? null)
-  const [uiLanguage, setUiLanguage] = useUiLanguage()
+  const navigate = useNavigate()
+  const routerLocation = useLocation()
+  // A chat started from Consult has its language chosen once and locked for the whole conversation.
+  const lockedLanguage = readConsultLang(routerLocation.search)
+  const [storedLanguage, setUiLanguage] = useUiLanguage()
+  const uiLanguage: UiLanguage = lockedLanguage ?? storedLanguage
   const t = STRINGS[uiLanguage]
-  const [voiceLanguage, setVoiceLanguage] = useState(uiLanguage === 'hi' ? 'hi-IN' : 'en-IN')
+  // The mic locale follows the chat language; a manual pick only applies to the language it was made in.
+  const [voicePick, setVoicePick] = useState<{ language: UiLanguage; locale: string } | null>(null)
+  const voiceLanguage = voicePick?.language === uiLanguage ? voicePick.locale : speechLocale(uiLanguage)
+  const setVoiceLanguage = (locale: string) => setVoicePick({ language: uiLanguage, locale })
+  const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
-    setVoiceLanguage(uiLanguage === 'hi' ? 'hi-IN' : 'en-IN')
-  }, [uiLanguage])
+    if (lockedLanguage) setUiLanguage(lockedLanguage)
+  }, [lockedLanguage, setUiLanguage])
   const [bookingTarget, setBookingTarget] = useState<string | null>(null)
   const [booking, setBooking] = useState<Booking | null>(null)
   const [bookingBusy, setBookingBusy] = useState(false)
@@ -90,7 +86,9 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
   const [autoRead, setAutoRead] = useState(false)
   const autoReadRef = useRef(false)
   const voice = useVoiceChat(setInput)
-  const welcomeMessage = WELCOME[uiLanguage](profile.name)
+  const welcomeMessage = t.assistantGreeting(profile.name)
+  // Each message is read in its own script, whatever the chat language is.
+  const speakText = (key: string, text: string) => voice.speak(key, text, messageSpeechLocale(text))
   const conversationEnd = useRef<HTMLDivElement>(null)
   const emergencyPanel = useRef<HTMLDivElement>(null)
 
@@ -101,6 +99,12 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
 
   const isDecided = result !== null && result.follow_up_question === null && !isInformational(result)
   const isEmergency = emergencyOpen || isEmergencyResponse(result)
+  // Crisis comes from the backend or, for speed and when it is down, from the patient's own words.
+  const crisisInfo = result?.crisis ?? history.findLast((turn) => turn.result?.crisis)?.result?.crisis ?? null
+  const crisisTurns = history.filter((turn) => turn.role === 'user' && detectCrisis(turn.content)).length
+  const crisisActive = crisisTurns > 0 || crisisInfo !== null
+  const alertKey = `${crisisTurns}:${crisisInfo ? 1 : 0}:${isEmergency ? 1 : 0}`
+  const showAlert = (isEmergency || crisisActive) && dismissedAlert !== alertKey
   const lastTurn = history.at(-1)
   const followUpTurnIndex = lastTurn?.role === 'assistant' ? history.length - 1 : lastTurn?.answers ? history.length - 2 : -1
   const followUpResponse = followUpTurnIndex >= 0 ? history[followUpTurnIndex]?.result : undefined
@@ -139,7 +143,7 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
       unsavedChat.current = null
       setStorageError(null)
     } else {
-      setStorageError('This conversation could not be saved to the database. It remains visible here, but leaving this chat may lose these changes. Retry saving before leaving.')
+      setStorageError(t.saveFailed)
     }
     return saved
   }
@@ -150,8 +154,8 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
     if (!text || submitting.current || isPending || voice.isListening) return
     if (recipient === 'self' && (/\b(?:(?:my|mere|meri|mera)\s+(?:mother|father|child|baby|son|daughter|wife|husband|grandmother|grandfather)|papa|mummy|dadi|dada)\b/i.test(text) || /(?:मेरी|मेरे|मेरा)\s*(?:माँ|मां|माता|पिता|पापा|मम्मी|बच्च|बेटा|बेटी|पत्नी|पति|दादी|दादा|नानी|नाना)/.test(text))) {
       setPatientError(history.length
-        ? 'This message mentions another patient. Start a new chat so your medical profile is not applied to someone else.'
-        : 'This message mentions another patient. Select "Someone else" above and enter their details instead of using your profile.')
+        ? t.otherPatientNew
+        : t.otherPatientSelect)
       return
     }
     await send(text, undefined, patientContext)
@@ -173,6 +177,11 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
     if (validation) return
     voice.stopSpeaking()
     voice.clearError()
+    if (detectCrisis(text)) {
+      emergencyRequested.current = true
+      setEmergencyOpen(true)
+      setDismissedAlert(null)
+    }
     const lastTurn = history.at(-1)
     const retrying = lastTurn?.role === 'user' && (lastTurn.content === text || (answers !== undefined && lastTurn.answers !== undefined))
     const priorHistory = retrying ? history.slice(0, -1) : history
@@ -194,7 +203,7 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
     triage.mutate(
       {
         user_input: text,
-        language: uiLanguage === 'hi' ? 'hi' : 'auto',
+        language: lockedLanguage ?? (uiLanguage === 'hi' ? 'hi' : 'auto'),
         location,
         conversation_history: priorHistory.map(({ role, content, follow_up_ids, answers: given }) => ({ role, content, follow_up_ids, answers: given })),
         patient_context: context,
@@ -205,17 +214,15 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
           const emergency = emergencyRequested.current || isEmergencyResponse(response)
           const supersededByEmergency = emergencyRequested.current && !isEmergencyResponse(response)
           const detected = (response.detected_language || '').toLowerCase()
-          const isHindi = uiLanguage === 'hi' || detected === 'hindi' || detected === 'hi'
-          if (isHindi && uiLanguage !== 'hi') {
+          const isHindi = lockedLanguage ? lockedLanguage === 'hi' : uiLanguage === 'hi' || detected === 'hindi' || detected === 'hi'
+          if (!lockedLanguage && isHindi && uiLanguage !== 'hi') {
             setUiLanguage('hi')
           }
           const effectiveLang: UiLanguage = isHindi ? 'hi' : 'en'
-          const effectiveVoiceLang = isHindi ? 'hi-IN' : voiceLanguage
-          if (isHindi && voiceLanguage !== 'hi-IN') {
-            setVoiceLanguage('hi-IN')
-          }
 
-          const reply = supersededByEmergency
+          const reply = supersededByEmergency && detectCrisis(text)
+            ? emergencyStrings(effectiveLang).crisisReply
+            : supersededByEmergency
             ? (effectiveLang === 'hi'
                 ? 'पिछली जांच के दौरान आपने आपातकालीन सहायता चुनी थी। तुरंत 112 या 102 पर कॉल करें। इस डेमो द्वारा किसी सेवा से संपर्क नहीं किया गया है।'
                 : 'You selected emergency assistance while the earlier request was being assessed. Call 112 or 102 now. No service has been contacted and no ambulance has been dispatched by this demo.')
@@ -233,7 +240,7 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
           setResult(supersededByEmergency ? null : response)
           setInput('')
           if (autoReadRef.current) {
-            voice.speak(`reply-${messages.length - 1}`, reply, effectiveVoiceLang)
+            speakText(`reply-${messages.length - 1}`, reply)
           }
         },
         onSettled: () => {
@@ -271,6 +278,7 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
     voice.cancelListening()
     voice.stopSpeaking()
     setEmergencyOpen(true)
+    setDismissedAlert(null)
     emergencyRequested.current = true
     setInput('I need emergency ambulance assistance.')
     setResult(null)
@@ -284,76 +292,93 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
   return (
     <div className="flex h-full flex-col overflow-hidden bg-white">
       <ChatSidebar chats={chats} activeId={activeChatId} onSelect={(id) => { selectChat(id); setSidebarOpen(false) }} onNew={() => { startOver(); setSidebarOpen(false) }} disabled={isPending} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <div className="shrink-0 border-b border-gray-100 bg-white px-3 py-2">
-        <div className="flex items-center gap-2">
-          <button type="button" onClick={() => setSidebarOpen(true)} className="min-h-11 shrink-0 rounded-lg border border-gray-200 px-3 text-sm">Chat history</button>
-          <h1 className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-700">{chats.find((chat) => chat.id === activeChatId)?.title ?? 'New care conversation'}</h1>
-          <div role="group" aria-label={t.uiLanguage} className="flex shrink-0 overflow-hidden rounded-lg border border-gray-200 text-sm">
-            {(['en', 'hi'] as const).map((code) => (
-              <button key={code} type="button" aria-pressed={uiLanguage === code} onClick={() => {
-                setUiLanguage(code)
-                voice.stopSpeaking()
-                setVoiceLanguage(code === 'hi' ? 'hi-IN' : 'en-IN')
-              }} className={`min-h-11 min-w-11 px-2 ${uiLanguage === code ? 'bg-brand-500 text-white' : 'bg-white text-gray-700'}`}>
-                {code === 'en' ? 'EN' : 'हिं'}
-              </button>
-            ))}
-          </div>
+      <header className="relative z-30 flex shrink-0 items-center gap-2 border-b border-gray-100 bg-white px-4 py-2.5">
+        <button
+          type="button" onClick={() => { voice.cancelListening(); voice.stopSpeaking(); navigate('/consult') }}
+          aria-label={t.chatBack}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-900 hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-brand-600"
+        >
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+        </button>
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-lg font-bold leading-tight text-gray-900">{t.chatTitle}</h1>
+          <p className="truncate text-sm font-medium text-emerald-700">{t.chatStatus}</p>
         </div>
-        <div className="mt-2 flex items-center gap-2">
-          <button type="button" onClick={openEmergency} className="min-h-11 flex-1 rounded-lg border border-red-200 bg-red-50 px-3 text-sm font-semibold text-red-800">{t.emergency}</button>
-          <button type="button" onClick={startOver} disabled={isPending} className="min-h-11 shrink-0 rounded-lg border border-gray-200 px-4 text-sm disabled:opacity-50">{t.newChat}</button>
+        <div className="relative shrink-0">
+          <button
+            type="button" aria-haspopup="menu" aria-expanded={menuOpen} aria-label={t.chatMenuLabel}
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="flex min-h-11 items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-brand-600"
+          >
+            {t.chatMenu}
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={menuOpen ? 'rotate-180' : ''}><path d="m6 9 6 6 6-6" /></svg>
+          </button>
+          {menuOpen && (
+            <>
+              <button type="button" tabIndex={-1} aria-label={t.close} onClick={() => setMenuOpen(false)} className="fixed inset-0 z-30 cursor-default" />
+              <div
+                role="menu" aria-label={t.chatMenuLabel}
+                onKeyDown={(e) => { if (e.key === 'Escape') setMenuOpen(false) }}
+                className="absolute right-0 top-full z-40 mt-2 w-64 rounded-2xl border border-gray-200 bg-white p-1.5 shadow-lg"
+              >
+                <MenuItem label={t.menuHistory} onSelect={() => { setMenuOpen(false); setSidebarOpen(true) }} />
+                <MenuItem label={t.newChat} disabled={isPending} onSelect={() => { setMenuOpen(false); startOver() }} />
+                <MenuItem label={t.emergency} danger onSelect={() => { setMenuOpen(false); openEmergency() }} />
+                <MenuItem label={t.menuDetails} onSelect={() => { setMenuOpen(false); setDetailsOpen(!detailsVisible) }} />
+                <button
+                  type="button" role="menuitemcheckbox" aria-checked={autoRead} disabled={!voice.canSpeak}
+                  onClick={() => {
+                    const next = !autoRead
+                    autoReadRef.current = next
+                    setAutoRead(next)
+                    if (!next) voice.stopSpeaking()
+                  }}
+                  className="flex min-h-11 w-full items-center justify-between rounded-xl px-3 text-left text-sm font-medium text-gray-900 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-brand-600 disabled:opacity-50"
+                >
+                  {t.menuReadAloud}
+                  <span aria-hidden="true" className={`flex h-5 w-5 items-center justify-center rounded border text-xs ${autoRead ? 'border-brand-600 bg-brand-600 text-white' : 'border-gray-300'}`}>{autoRead ? '✓' : ''}</span>
+                </button>
+              </div>
+            </>
+          )}
         </div>
-      </div>
-      <section className="min-h-0 flex-1 overflow-y-auto bg-white" aria-label="Care conversation">
-        <div className="flex min-h-full flex-col px-3 pt-3">
-      <p className="mb-2 rounded-lg bg-amber-50 px-3 py-1.5 text-xs text-amber-900">{t.demoBanner}</p>
-      {storageError && <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-800">{storageError}</p>}
+      </header>
+      <section className="min-h-0 flex-1 overflow-y-auto bg-white" aria-label={t.conversationLabel}>
+        {showAlert && <EmergencyAlert key={alertKey} language={uiLanguage} crisis={crisisInfo ?? crisisActive} onDismiss={() => setDismissedAlert(alertKey)} />}
+        <div className="flex min-h-full flex-col px-4 pt-3">
+      <p className="mb-3 text-center text-xs text-gray-600">{t.demoBanner}</p>
+      {storageError && <p role="alert" className="mb-3 rounded-xl bg-red-50 p-3 text-sm text-red-800">{storageError}</p>}
       {storageError && <button type="button" disabled={saving} onClick={async () => {
         const record = unsavedChat.current
         if (record && await saveChat(record) && unsavedChat.current === record) {
           unsavedChat.current = null
           setStorageError(null)
         }
-      }} className="mb-3 min-h-11 rounded-lg border border-red-200 px-3 text-sm">Retry saving conversation</button>}
-      {saving && <p role="status" className="mb-2 text-xs text-gray-500">Saving conversation...</p>}
+      }} className="mb-3 min-h-11 rounded-xl border border-red-200 px-3 text-sm">{t.retrySave}</button>}
 
-      <button
-        type="button"
-        aria-expanded={detailsVisible}
-        aria-controls="consult-details"
-        onClick={() => setDetailsOpen(!detailsVisible)}
-        className="mb-3 flex min-h-11 w-full items-center justify-between rounded-lg border border-gray-200 px-3 text-left text-sm font-medium text-gray-700"
-      >
-        <span>Patient &amp; address details</span>
-        <span aria-hidden="true" className={`transition-transform ${detailsVisible ? 'rotate-180' : ''}`}>&#9662;</span>
-      </button>
-      {patientError && <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{patientError}</p>}
+      {patientError && <p role="alert" className="mb-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">{patientError}</p>}
 
       <div id="consult-details" hidden={!detailsVisible} className="mb-3">
-      <section className="rounded-xl border border-gray-200 p-3" aria-label="Your details">
-        <p className="text-sm text-gray-500">
-          Account: <span className="break-all">{profile.email}</span> <Link to="/profile" className="ml-2 inline-flex min-h-11 items-center font-medium text-brand-600">Edit profile</Link>
-        </p>
+      <section className="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm" aria-label={t.yourDetails}>
         <form
-          className="mt-2 flex flex-col gap-2"
+          className="flex flex-col gap-2"
           onSubmit={(e) => {
             e.preventDefault()
             updateProfile({ ...profile, address: address.trim() })
           }}
         >
           <label className="min-w-0 text-sm text-gray-600">
-            Care address
+            {t.careAddress}
             <input
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               autoComplete="street-address"
-              placeholder="House number, street, city and postal code"
-              className="mt-1 min-h-11 w-full rounded-lg border border-gray-200 px-3 py-2 text-base text-gray-900"
+              placeholder={t.addressPlaceholder}
+              className="mt-1 min-h-11 w-full rounded-xl border border-gray-200 px-3 py-2 text-base text-gray-900"
             />
           </label>
-          <button type="submit" className="min-h-11 self-start rounded-lg border border-gray-200 px-4 text-sm">
-            Save address
+          <button type="submit" className="min-h-11 self-start rounded-xl border border-gray-200 px-4 text-sm">
+            {t.saveAddress}
           </button>
         </form>
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -361,14 +386,14 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
             type="button"
             disabled={isLocating}
             onClick={requestLocation}
-            className="min-h-11 rounded-lg border border-gray-200 px-3 text-sm disabled:opacity-50"
+            className="min-h-11 rounded-xl border border-gray-200 px-3 text-sm disabled:opacity-50"
           >
-            {isLocating ? 'Finding your location...' : 'Use my current location'}
+            {isLocating ? t.findingLocation : t.useLocation}
           </button>
-          {location && <p className="text-sm text-gray-500" role="status">{`Location shared: ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`}</p>}
+          {location && <p className="text-sm text-gray-500" role="status">{t.locationShared(location.lat.toFixed(4), location.lng.toFixed(4))}</p>}
         </div>
         {locationError && (
-          <div className="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+          <div className="mt-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
             <p role="alert">{locationError}</p>
             <a
               href={window.location.href}
@@ -376,7 +401,7 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
               rel="noopener noreferrer"
               className="mt-2 inline-block font-medium underline"
             >
-              Open in a new tab
+              {t.openNewTab}
             </a>
           </div>
         )}
@@ -395,9 +420,9 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
         recipientLocked={history.length > 0}
       />
 
-      <div className="mt-3 flex flex-col gap-2 text-sm text-gray-600">
-        <label className="flex flex-wrap items-center gap-2">
-          Voice language
+      {!lockedLanguage && (
+        <label className="mt-3 flex flex-wrap items-center gap-2 text-sm text-gray-700">
+          {t.voiceLanguageLabel}
           <select
             value={voiceLanguage}
             disabled={voice.isListening}
@@ -405,71 +430,46 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
               voice.stopSpeaking()
               setVoiceLanguage(e.target.value)
             }}
-            className="min-h-11 rounded-lg border border-gray-200 bg-white px-2 text-base"
+            className="min-h-11 rounded-xl border border-gray-200 bg-white px-2 text-base"
           >
-            <option value="en-IN">English / Hinglish</option>
-            <option value="hi-IN">Hindi</option>
+            <option value="en-IN">{t.voiceLangEnglish}</option>
+            <option value="hi-IN">{t.voiceLangHindi}</option>
           </select>
         </label>
-        <label className="flex min-h-11 items-center gap-2">
-          <input
-            type="checkbox"
-            checked={autoRead}
-            disabled={!voice.canSpeak}
-            onChange={(e) => {
-              autoReadRef.current = e.target.checked
-              setAutoRead(e.target.checked)
-              if (!e.target.checked) voice.stopSpeaking()
-            }}
-          />
-          Read replies aloud
-        </label>
+      )}
       </div>
-      </div>
-
-      <h2 className="mb-2 font-semibold text-gray-900">{t.greeting(profile.name)}</h2>
 
       {showShortcuts && (
-        <section className="mb-4" aria-label="Choose a care service">
-          <p className="text-sm text-gray-700">
-            {t.howHelp(profile.name)}
-          </p>
-          <div className="mt-3">
-            <SpeechButton
-              label="Read welcome and services aloud"
-              isSpeaking={voice.speakingKey === 'welcome'}
-              disabled={!voice.canSpeak || voice.isListening}
-              onClick={() => voice.speak('welcome', welcomeMessage, voiceLanguage)}
-            />
-          </div>
-          <div className="mt-3 grid gap-2">
-            {SERVICE_EXAMPLES[uiLanguage].map((service) => (
-              <button
-                key={service.label}
-                type="button"
-                disabled={isPending || voice.isListening}
-                onClick={() => {
-                  setInput(service.example)
-                  if (recipient !== service.recipient) {
-                    setRecipient(service.recipient)
-                    setPatientContext(patientContextFromProfile(service.recipient === 'self' ? profile : undefined))
-                  }
-                }}
-                className="rounded-lg border border-gray-200 p-3 text-left hover:bg-gray-50 disabled:opacity-50"
-              >
-                <span className="block text-sm font-medium text-gray-900">{service.label}</span>
-                <span className="mt-1 block text-xs text-gray-500">{service.example}</span>
-              </button>
+        <section data-tour="chat-quick" className="mb-3" aria-label={t.quickRepliesLabel}>
+          {history.length === 0 && (
+            <div className="mb-3">
+              <ChatBubble
+                role="assistant"
+                content={welcomeMessage}
+                onReadAloud={() => speakText('welcome', welcomeMessage)}
+                isSpeaking={voice.speakingKey === 'welcome'}
+                speechDisabled={!voice.canSpeak || voice.isListening}
+                readLabel={t.readAloud}
+                stopLabel={t.stopAloud}
+              />
+            </div>
+          )}
+          <ol className="grid gap-2">
+            {QUICK_REPLIES[uiLanguage].map((text, index) => (
+              <li key={text}>
+                <button
+                  type="button"
+                  disabled={isPending || voice.isListening}
+                  onClick={() => { void send(text, undefined, patientContext) }}
+                  className="flex min-h-16 w-full items-center gap-4 rounded-2xl border border-gray-200 bg-white px-4 py-2 text-left text-lg text-gray-900 transition hover:border-brand-300 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-brand-600 disabled:opacity-50"
+                >
+                  <span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-lg text-gray-600">{index + 1}</span>
+                  <span className="min-w-0 flex-1 break-words">{text}</span>
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0 text-gray-500"><path d="m9 18 6-6-6-6" /></svg>
+                </button>
+              </li>
             ))}
-            <button
-              type="button"
-              onClick={openEmergency}
-              className="rounded-lg border border-red-300 bg-red-50 p-3 text-left text-red-800 hover:bg-red-100"
-            >
-              <span className="block text-sm font-semibold">{t.emergency}</span>
-              <span className="mt-1 block text-xs">Call 112 / 102 now</span>
-            </button>
-          </div>
+          </ol>
         </section>
       )}
 
@@ -479,9 +479,11 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
             key={i}
             role={turn.role}
             content={turn.content}
-            onReadAloud={() => voice.speak(`reply-${i}`, turn.content, voiceLanguage)}
+            onReadAloud={() => speakText(`reply-${i}`, turn.content)}
             isSpeaking={voice.speakingKey === `reply-${i}`}
             speechDisabled={!voice.canSpeak || voice.isListening}
+            readLabel={t.readAloud}
+            stopLabel={t.stopAloud}
           />
         ))}
 
@@ -506,32 +508,32 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
         )}
 
         {triage.isError && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            CareCompass could not complete this request. Your message is saved; review the details and try Send again. {triage.error.message}
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {t.requestFailed(triage.error.message)}
           </div>
         )}
         {!isPending && !triage.isError && history.at(-1)?.role === 'user' && (
-          <p role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">The last request has no saved reply. Review the message below and send it again to retry.</p>
+          <p role="status" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{t.noSavedReply}</p>
         )}
 
         {isEmergency && (
           <div ref={emergencyPanel} className="flex scroll-mt-16 flex-col gap-3">
             <EmergencyBanner
               redFlags={isEmergencyResponse(result) ? result!.red_flags : []}
-              reasoning={isEmergencyResponse(result) ? result!.reasoning : (uiLanguage === 'hi' ? 'आपने आपातकालीन सहायता का अनुरोध किया है। तुरंत 112 या 102 पर कॉल करें; इस ऐप द्वारा किसी सेवा से संपर्क नहीं किया गया है।' : 'You requested emergency assistance. Call 112 or 102 now; no service has been contacted by this app.')}
+              reasoning={isEmergencyResponse(result) ? result!.reasoning : crisisActive ? emergencyStrings(uiLanguage).crisisBody : (uiLanguage === 'hi' ? 'आपने आपातकालीन सहायता का अनुरोध किया है। तुरंत 112 या 102 पर कॉल करें; इस ऐप द्वारा किसी सेवा से संपर्क नहीं किया गया है।' : 'You requested emergency assistance. Call 112 or 102 now; no service has been contacted by this app.')}
               language={uiLanguage}
             />
             <SpeechButton
               label={uiLanguage === 'hi' ? 'आपातकालीन निर्देश सुनें' : 'Read emergency guidance aloud'}
               isSpeaking={voice.speakingKey === `reply-${resultTurnIndex}`}
               disabled={!voice.canSpeak || voice.isListening}
-              onClick={() => voice.speak(`reply-${resultTurnIndex}`, isEmergencyResponse(result) ? describeResponse(result!, uiLanguage) : (uiLanguage === 'hi' ? 'आपातकालीन सहायता के लिए तुरंत 112 या 102 पर कॉल करें। इस डेमो ने किसी एम्बुलेंस को नहीं भेजा है।' : 'Call 112 or 102 now for emergency assistance. This demo has not dispatched an ambulance or contacted a hospital.'), voiceLanguage)}
+              onClick={() => speakText(`reply-${resultTurnIndex}`, isEmergencyResponse(result) ? describeResponse(result!, uiLanguage) : (uiLanguage === 'hi' ? 'आपातकालीन सहायता के लिए तुरंत 112 या 102 पर कॉल करें। इस डेमो ने किसी एम्बुलेंस को नहीं भेजा है।' : 'Call 112 or 102 now for emergency assistance. This demo has not dispatched an ambulance or contacted a hospital.'))}
             />
             <EmergencyAssistance location={location} address={profile.address} disabled={isPending} onRecord={(summary) => {
               void persist([...history, { role: 'user', content: 'Record demo ambulance and hospital preferences' }, { role: 'assistant', content: summary }], true, null, null)
               setResult(null)
             }} />
-            {result?.assessment && <AssessmentCard assessment={result.assessment} />}
+            {result?.assessment && <AssessmentCard assessment={result.assessment} language={uiLanguage} />}
           </div>
         )}
 
@@ -547,7 +549,7 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
               label={uiLanguage === 'hi' ? 'सलाह सुनें' : 'Read care recommendation aloud'}
               isSpeaking={voice.speakingKey === `reply-${resultTurnIndex}`}
               disabled={!voice.canSpeak || voice.isListening}
-              onClick={() => voice.speak(`reply-${resultTurnIndex}`, describeResponse(result!, uiLanguage), voiceLanguage)}
+              onClick={() => speakText(`reply-${resultTurnIndex}`, describeResponse(result!, uiLanguage))}
             />
 
             <DoctorCaseSummary
@@ -555,16 +557,16 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
               profile={profile}
               patientContext={patientContext}
               recipient={recipient}
+              language={uiLanguage}
             />
 
             {result!.matching_note && (
-              <p role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{result!.matching_note}</p>
+              <p role="status" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{localizeMatchingNote(result!.matching_note, uiLanguage)}</p>
             )}
 
             {result!.matched_caregivers.length > 0 && (
               <div className="mt-2 flex flex-col gap-3">
                 <h2 className="text-sm font-semibold text-gray-500">{t.recommended}</h2>
-                <p className="text-xs text-gray-500">{t.recommendedNote}</p>
                 {result!.matched_caregivers.map((match) => {
                   const caregiverProfile = caregivers?.find((c) => c.caregiver_id === match.caregiver_id)
                   return (
@@ -610,11 +612,11 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
             {booking && (
               <BookingConfirmation booking={booking} language={uiLanguage} cancelling={bookingBusy} onCancel={handleCancelBooking} />
             )}
-            {bookingError && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{bookingError}</p>}
+            {bookingError && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{bookingError}</p>}
 
             {result?.assessment && (
               <div className="mt-2">
-                <AssessmentCard assessment={result.assessment} />
+                <AssessmentCard assessment={result.assessment} language={uiLanguage} />
               </div>
             )}
           </>
@@ -623,29 +625,27 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
 
       {voice.speakingKey && (
         <button type="button" onClick={voice.stopSpeaking} className="mt-3 min-h-11 self-start font-medium text-brand-600">
-          Stop audio
+          {t.stopAudio}
         </button>
       )}
-      {voice.error && <p role="alert" className="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{voice.error}</p>}
+      {voice.error && <p role="alert" className="mt-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{voice.error}</p>}
 
       {isDecided && (
         <button
           type="button"
           onClick={startOver}
-          className="mt-4 min-h-11 self-start rounded-lg border border-gray-200 px-4 text-sm font-medium text-gray-600 transition hover:bg-gray-50"
+          className="mt-4 min-h-11 self-start rounded-xl border border-gray-200 px-4 text-sm font-medium text-gray-600 transition hover:bg-gray-50"
         >
           {t.newRequest}
         </button>
       )}
         <div ref={conversationEnd} />
-        <form onSubmit={handleSubmit} className="sticky bottom-0 z-10 -mx-3 mt-3 flex flex-wrap items-end gap-2 border-t border-gray-200 bg-white px-3 py-2">
-          <div className="w-full text-xs text-gray-500">
-            {voice.isListening ? (
-              <p role="status" className="rounded-lg bg-brand-50 p-3 text-sm text-brand-700">
-                Listening... {voice.interimTranscript || 'Speak now, then press Stop mic to review your message.'}
-              </p>
-            ) : null}
-          </div>
+        <form onSubmit={handleSubmit} className="sticky bottom-0 z-10 -mx-4 mt-3 flex items-center gap-2 border-t border-gray-100 bg-white px-4 py-2.5">
+          {voice.isListening && (
+            <p role="status" className="absolute inset-x-4 bottom-full mb-2 rounded-xl bg-brand-50 p-3 text-sm text-brand-800 shadow-sm">
+              <span className="font-semibold">{t.listening}</span> {voice.interimTranscript || t.listeningHint}
+            </p>
+          )}
           <textarea
             value={input}
             readOnly={voice.isListening}
@@ -658,31 +658,33 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
               }
             }}
             rows={1}
-            aria-label="Your care request"
+            aria-label={t.careRequestLabel}
             placeholder={t.placeholder}
-            className="max-h-32 min-h-11 min-w-0 flex-1 resize-none rounded-lg border border-gray-200 px-3 py-2.5 text-base text-gray-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+            className="max-h-32 min-h-12 min-w-0 flex-1 resize-none rounded-3xl bg-gray-100 px-4 py-3 text-base text-gray-900 outline-none transition placeholder:text-gray-600 focus:ring-2 focus:ring-brand-500/40"
           />
+          {input.trim() && (
+            <button
+              type="submit"
+              aria-label={t.send}
+              disabled={isPending || voice.isListening}
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-600 text-white transition hover:bg-brand-700 active:bg-brand-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>
+            </button>
+          )}
           <button
             type="button"
-            aria-label={voice.isListening ? 'Stop microphone' : 'Start microphone'}
+            data-tour="chat-mic"
+            aria-label={voice.isListening ? t.micStop : t.micStart}
             aria-pressed={voice.isListening}
             disabled={!voice.canListen || isPending}
             onClick={() => voice.isListening ? voice.stopListening() : voice.startListening(input, voiceLanguage)}
-            className={`inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-lg border px-2.5 text-sm font-medium disabled:opacity-50 ${voice.isListening ? 'border-red-300 bg-red-50 text-red-700' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-white transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-50 ${voice.isListening ? 'animate-pulse bg-red-700 ring-4 ring-red-200' : 'bg-brand-700 hover:bg-brand-800'}`}
           >
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
               <rect x="9" y="2" width="6" height="12" rx="3" />
               <path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3m-4 0h8" />
-              {voice.isListening && <path d="m3 3 18 18" />}
             </svg>
-            {voice.isListening ? 'Stop mic' : <span className="sr-only">Mic</span>}
-          </button>
-          <button
-            type="submit"
-            disabled={!input.trim() || isPending || voice.isListening}
-            className="h-11 shrink-0 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white transition hover:bg-brand-600 active:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {t.send}
           </button>
         </form>
         </div>

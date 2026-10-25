@@ -31,6 +31,16 @@ export function isInformational(response: TriageResponse | null | undefined) {
   return response?.action === 'answer' && !response.care_type && !response.assessment && !response.follow_up_question
 }
 
+export const VISIBLE_OPTIONS = 4
+
+// First four choices are shown; the rest sit behind "More choices" so no answer is ever lost.
+// A selection that is hidden (restored draft) keeps the list open.
+export function visibleOptions<T extends { value: string }>(options: T[], expanded: boolean, selected: string[]): T[] {
+  if (options.length <= VISIBLE_OPTIONS || expanded) return options
+  const hiddenSelected = options.slice(VISIBLE_OPTIONS).some((option) => selected.includes(option.value))
+  return hiddenSelected ? options : options.slice(0, VISIBLE_OPTIONS)
+}
+
 export function emptyDraft(questions: FollowUpQuestion[]): Draft {
   return Object.fromEntries(questions.map((question) => [question.question_id, { selected: [], other: '' }]))
 }

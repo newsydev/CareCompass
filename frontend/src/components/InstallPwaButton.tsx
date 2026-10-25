@@ -7,14 +7,12 @@ interface BeforeInstallPromptEvent extends Event {
 
 export function InstallPwaButton() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
-  const [isInstalled, setIsInstalled] = useState(false)
+  // Already running as an installed PWA (standalone display mode)?
+  const [isInstalled, setIsInstalled] = useState(() =>
+    window.matchMedia('(display-mode: standalone)').matches || Boolean((window.navigator as unknown as { standalone?: boolean }).standalone))
 
   useEffect(() => {
-    // Check if app is already running in standalone PWA mode
-    if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as unknown as { standalone?: boolean }).standalone) {
-      setIsInstalled(true)
-      return
-    }
+    if (isInstalled) return
 
     const handler = (e: Event) => {
       e.preventDefault()
@@ -30,7 +28,7 @@ export function InstallPwaButton() {
     return () => {
       window.removeEventListener('beforeinstallprompt', handler)
     }
-  }, [])
+  }, [isInstalled])
 
   async function handleInstallClick() {
     if (!deferredPrompt) return
@@ -48,10 +46,10 @@ export function InstallPwaButton() {
     <button
       type="button"
       onClick={handleInstallClick}
-      className="flex items-center gap-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-white px-2.5 py-1.5 text-xs font-semibold shadow-sm transition"
+      className="flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
       title="Install CareCompass to your phone or desktop home screen"
     >
-      <span>📲</span>
+
       <span>Install App</span>
     </button>
   )

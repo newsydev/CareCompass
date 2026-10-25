@@ -1,6 +1,9 @@
 import type { TriageResponse } from '../api/types'
 import { humanizeSlug } from './humanize'
 import { careLabel, type UiLanguage } from './i18n'
+import { localizeAssessmentText } from './localizeNames'
+
+const hi = (text: string) => localizeAssessmentText(text, 'hi')
 
 export function translateReasoning(reasoning: string | null | undefined, language: UiLanguage = 'en'): string {
   if (!reasoning) return ''
@@ -67,18 +70,24 @@ export function describeResponse(response: TriageResponse, language: UiLanguage 
 
     if (assessment) {
       if (assessment.possible_categories && assessment.possible_categories.length) {
-        lines.push(`संभावित लक्षण समूह (निदान नहीं): ${assessment.possible_categories.join('; ')}।`)
+        lines.push(`संभावित लक्षण समूह (निदान नहीं): ${assessment.possible_categories.map(hi).join('; ')}।`)
       }
       if (assessment.risk_factors && assessment.risk_factors.length) {
-        lines.push(`रिपोर्ट किए गए जोखिम कारक: ${assessment.risk_factors.join(' ')}।`)
+        lines.push(`रिपोर्ट किए गए जोखिम कारक: ${assessment.risk_factors.map(hi).join(' ')}`)
       }
       if (assessment.viral_status) {
         lines.push(
-          assessment.viral_status.replace(/Cannot establish viral illness/gi, 'वायरल बीमारी की पुष्टि नहीं की जा सकती')
+          hi(assessment.viral_status).replace(/Cannot establish viral illness/gi, 'वायरल बीमारी की पुष्टि नहीं की जा सकती')
         )
       }
       if (assessment.next_steps && assessment.next_steps.length) {
-        lines.push(...assessment.next_steps)
+        lines.push(...assessment.next_steps.map(hi))
+      }
+      if (assessment.supportive_steps && assessment.supportive_steps.length) {
+        lines.push(...assessment.supportive_steps.map(hi))
+      }
+      if (assessment.missing_information && assessment.missing_information.length) {
+        lines.push(`अज्ञात या अपुष्ट जानकारी: ${assessment.missing_information.map(hi).join(' ')}`)
       }
       if (assessment.disclaimer) {
         lines.push('यह केवल सेवा मार्गदर्शन के लिए है, चिकित्सा निदान नहीं है। आपात स्थिति में तुरंत 112 पर कॉल करें।')

@@ -31,7 +31,7 @@ def initialize_database():
     with connection() as db:
         db.execute("PRAGMA journal_mode = WAL")
         version = db.execute("PRAGMA user_version").fetchone()[0]
-        if version > 2:
+        if version > 3:
             raise RuntimeError("This database requires a newer CareCompass version.")
         if version == 0:
             db.executescript("""
@@ -104,6 +104,40 @@ def initialize_database():
                 CREATE INDEX bookings_user ON bookings(user_id, created_at DESC);
                 CREATE UNIQUE INDEX bookings_active_slot ON bookings(caregiver_id, slot_start) WHERE status = 'confirmed_demo';
                 PRAGMA user_version = 2;
+                COMMIT;
+            """)
+            version = 2
+        if version == 2:
+            # Idempotent so a run interrupted before user_version was bumped can be repeated.
+            existing = {row["name"] for row in db.execute("PRAGMA table_info(profiles)")}
+            for column in ("phone", "date_of_birth", "gender", "blood_group", "allergies",
+                           "past_history", "current_medications", "family_history"):
+                if column not in existing:
+                    db.execute(f"ALTER TABLE profiles ADD COLUMN {column} TEXT NOT NULL DEFAULT ''")
+            db.executescript("""
+                BEGIN IMMEDIATE;
+                CREATE TABLE IF NOT EXISTS support_tickets (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    category TEXT NOT NULL,
+                    subject TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    status TEXT NOT NULL CHECK (status IN ('open', 'closed')),
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS tickets_user ON support_tickets(user_id, created_at DESC);
+                CREATE TABLE IF NOT EXISTS documents (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    kind TEXT NOT NULL CHECK (kind IN ('report', 'prescription')),
+                    filename TEXT NOT NULL,
+                    content_type TEXT NOT NULL,
+                    size_bytes INTEGER NOT NULL,
+                    created_at TEXT NOT NULL,
+                    data BLOB NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS documents_user ON documents(user_id, kind, created_at DESC);
+                PRAGMA user_version = 3;
                 COMMIT;
             """)
 

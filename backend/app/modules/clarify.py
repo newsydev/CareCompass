@@ -49,10 +49,20 @@ SYMPTOMS: Dict[str, List[str]] = {
                   "बदन दर्द", "जोड़ों में दर्द", "कमर दर्द"],
     "weakness": ["weakness", "weak", "kamzori", "kamzor", "tired", "tiredness", "थकान", "कमज़ोरी", "कमजोरी"],
     "dizziness": ["dizzy", "dizziness", "chakkar", "चक्कर"],
+    # Emotional distress / mental health. Never off-topic, and never asked about pain.
+    "distress": ["stress", "stressed", "anxiety", "anxious", "depressed", "depression", "panic", "panic attack",
+                 "udaas", "udas", "tension", "tanav", "ghabrahat", "ghabrahat hai", "dar lag raha", "dar lagta",
+                 "neend nahi", "nind nahi", "sleepless", "insomnia", "hopeless", "lonely", "mann nahi lag",
+                 "man nahi lag", "feeling low", "feel low", "sad", "cant sleep", "can't sleep",
+                 "suicidal", "sucidal", "suicide", "sucide", "suicidal thoughts", "kill myself", "end my life",
+                 "khudkushi", "khud kushi", "marna chahta", "marna chahti", "jaan dena", "jaan de dun",
+                 "उदास", "तनाव", "घबराहट", "चिंता", "डिप्रेशन", "नींद नहीं", "अकेला", "निराश", "आत्महत्या",
+                 "मरना चाहता", "मरना चाहती", "डर लग रहा", "टेंशन"],
     "pain": ["pain", "dard", "दर्द"],  # generic: only used when nothing more specific matched
 }
 GENERIC_SYMPTOM = "pain"
 PAIN_LIKE = {"headache", "stomach_pain", "body_pain", "pain", "sore_throat"}
+DISTRESS = "distress"
 
 SYMPTOM_NAMES: Dict[str, Dict[str, str]] = {
     "headache": L("headache", "sar dard", "सिरदर्द"),
@@ -68,7 +78,10 @@ SYMPTOM_NAMES: Dict[str, Dict[str, str]] = {
     "weakness": L("weakness", "kamzori", "कमज़ोरी"),
     "dizziness": L("dizziness", "chakkar", "चक्कर"),
     "pain": L("pain", "dard", "दर्द"),
+    "distress": L("distress", "mansik pareshani", "मानसिक परेशानी"),
 }
+# Used when the symptom is unknown or came from the LLM: never fall back to "pain" for these.
+GENERIC_NAME = L("problem", "samasya", "समस्या")  # the question templates add "this" / "yeh" / "यह"
 
 SEVERITY_TERMS: Dict[str, List[str]] = {
     "severe": ["severe", "very bad", "unbearable", "intense", "terrible", "worst", "bahut tez", "bahut zyada",
@@ -399,8 +412,15 @@ Q_TEXT: Dict[str, Dict[str, str]] = {
     "associated": L("Do you have any of these along with it? (select all that apply)",
                     "Iske saath inme se kuch hai? (jo laagu ho sab chunein)",
                     "इसके साथ इनमें से कुछ है? (जो लागू हो सब चुनें)"),
+    "safety": L("Are you having thoughts of harming yourself or ending your life?",
+                "Kya aapko apne aap ko nuksaan pahunchane ya jaan dene ke vichaar aa rahe hain?",
+                "क्या आपको खुद को नुकसान पहुँचाने या जान देने के विचार आ रहे हैं?"),
+    "sleep_mood": L("How has your sleep and mood been?", "Aapki neend aur mood kaisa raha hai?",
+                    "आपकी नींद और मनोदशा कैसी रही है?"),
 }
 SUMMARY = {
+    "safety": L("Safety check", "Suraksha jaanch", "सुरक्षा जाँच"),
+    "sleep_mood": L("Sleep and mood", "Neend aur mood", "नींद और मनोदशा"),
     "patient": L("Patient", "Mareez", "मरीज़"),
     "patient_age": L("Age group", "Umar", "उम्र"),
     "duration": L("Duration", "Kitne samay se", "अवधि"),
@@ -408,6 +428,20 @@ SUMMARY = {
     "associated": L("Associated symptoms", "Saath ke lakshan", "साथ के लक्षण"),
     "main_concern": L("Main concern", "Mukhya samasya", "मुख्य समस्या"),
 }
+
+# Option text carries phrases the crisis/safety rules recognise, so a "yes" escalates instead of being ignored.
+SAFETY_OPTIONS = [
+    _opt("yes", L("Yes", "Haan", "हाँ"), "I am having thoughts of harming myself and ending my life"),
+    _opt("sometimes", L("Sometimes", "Kabhi kabhi", "कभी-कभी"), "I sometimes have thoughts of harming myself"),
+    _opt("no", L("No", "Nahi", "नहीं"), "no thoughts of harming myself"),
+    _opt("not_sure", NOT_SURE, "not sure about thoughts of harming myself"),
+]
+SLEEP_MOOD_OPTIONS = [
+    _opt("sleep_poor", L("Not sleeping well", "Neend theek nahi aa rahi", "नींद ठीक नहीं आ रही"), "not sleeping well"),
+    _opt("mood_low", L("Feeling low or hopeless", "Udaasi ya nirasha", "उदासी या निराशा"), "feeling low or hopeless"),
+    _opt("anxious", L("Anxious or panicky", "Ghabrahat ya panic", "घबराहट या पैनिक"), "feeling anxious or panicky"),
+    _opt("other", L("Something else", "Kuch aur", "कुछ और"), "something else"),
+]
 
 MAIN_CONCERN_OPTIONS = [
     _opt("fever_weakness", L("Fever or weakness", "Bukhar ya kamzori", "बुखार या कमज़ोरी"), "fever or weakness"),
@@ -442,11 +476,19 @@ def _build(question_id: str, language: Lang, input_type: str, options: List[Dict
 
 def _symptom_phrase(symptoms: List[str], language: Lang) -> str:
     if len(symptoms) == 1:
-        return SYMPTOM_NAMES.get(symptoms[0], SYMPTOM_NAMES["pain"])[language]
+        # An unknown symptom (for example one read by the LLM) must not be described as "pain".
+        return SYMPTOM_NAMES.get(symptoms[0], GENERIC_NAME)[language]
     return {"English": "these symptoms", "Hinglish": "yeh takleef", "Hindi": "ये तकलीफ़ें"}[language]
 
 
 def duration_question(symptoms: List[str], language: Lang) -> FollowUpQuestion:
+    if symptoms == [DISTRESS]:
+        text = {
+            "English": "How long have you been feeling this way?",
+            "Hinglish": "Aap yeh sab kab se mehsoos kar rahe hain?",
+            "Hindi": "आप यह सब कब से महसूस कर रहे हैं?",
+        }[language]
+        return _build("duration", language, "single_choice", DURATION_OPTIONS, text)
     name = _symptom_phrase(symptoms, language)
     text = {
         "English": f"How long have you had {'this ' + name if len(symptoms) == 1 else name}?",
@@ -457,7 +499,7 @@ def duration_question(symptoms: List[str], language: Lang) -> FollowUpQuestion:
 
 
 def severity_question(symptom: str, language: Lang) -> FollowUpQuestion:
-    name = SYMPTOM_NAMES.get(symptom, SYMPTOM_NAMES["pain"])[language]
+    name = SYMPTOM_NAMES.get(symptom, GENERIC_NAME)[language]
     text = {
         "English": f"How severe is the {name}?",
         "Hinglish": f"{name.capitalize()} kitna tez hai?",
@@ -483,6 +525,16 @@ def build_questions(known: Known, text: str, asked: set, answered: set, language
             wanted.append(_build("main_concern", language, "single_choice", MAIN_CONCERN_OPTIONS))
         if known.patient is None and not known.age_known and "patient" not in skip:
             wanted.append(_build("patient", language, "single_choice", PATIENT_OPTIONS))
+        return wanted
+
+    if known.symptoms == [DISTRESS]:
+        # Mood, sleep and safety only: never the pain questions, never "who is this for".
+        if "safety" not in skip:
+            wanted.append(_build("safety", language, "single_choice", SAFETY_OPTIONS))
+        if known.duration is None and "duration" not in skip:
+            wanted.append(duration_question(known.symptoms, language))
+        if "sleep_mood" not in skip:
+            wanted.append(_build("sleep_mood", language, "single_choice", SLEEP_MOOD_OPTIONS))
         return wanted
 
     if not known.age_known:
@@ -584,7 +636,10 @@ async def decide(
     if not known.symptoms and not is_answer_turn:
         understood = await understand_unusual(user_input)
         if understood and understood.symptoms:
-            known.symptoms = [item.lower() for item in understood.symptoms]
+            raw_symptoms = [item.lower() for item in understood.symptoms]
+            # Map free-text LLM symptoms onto known keys so wording like "suicidal thoughts" reaches the
+            # distress questions instead of the pain ones; unmatched text stays as a generic complaint.
+            known.symptoms = find_symptoms(" ".join(raw_symptoms)) or raw_symptoms
             known.duration = known.duration or understood.duration
             if known.patient is None and understood.patient:
                 known.patient = understood.patient

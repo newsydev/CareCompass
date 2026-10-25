@@ -1,0 +1,3 @@
+export const authInput = 'w-full rounded-xl border border-gray-300 bg-white px-3.5 py-3 text-base text-gray-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30'
+export const authButton = 'mt-2 min-h-12 rounded-xl bg-brand-600 px-4 py-3 text-base font-semibold text-white transition hover:bg-brand-700 active:bg-brand-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:bg-brand-300'
+export const authToggle = 'absolute inset-y-0 right-2 flex min-w-11 items-center justify-center rounded-lg px-2 text-sm font-semibold text-brand-700 hover:text-brand-800 focus-visible:outline-2 focus-visible:outline-brand-600'
