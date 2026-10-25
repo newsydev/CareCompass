@@ -116,7 +116,8 @@ Respond strictly in valid JSON matching this schema:
 
 async def evaluate_triage(
     raw_input: str,
-    entities: ExtractedEntities
+    entities: ExtractedEntities,
+    language: str = "auto"
 ) -> Dict[str, Any]:
     """
     Module 2: Triage Engine.
@@ -127,13 +128,24 @@ async def evaluate_triage(
     # 1. Deterministic Rule-Based Red Flags with Negation Check
     red_flags = detect_red_flags(raw_input, entities.symptoms)
 
+    is_hindi_or_hinglish = (
+        language.lower() in {"hindi", "hi", "hinglish"}
+        or bool(re.search(r"[\u0900-\u097f]", raw_input))
+        or any(k in raw_input.lower() for k in ["hai", "mera", "meri", "mere", "ko", "gya", "karna", "chahiye", "cut", "bukhar", "dard"])
+    )
+
     if red_flags:
         flags_formatted = ", ".join(red_flags)
+        emergency_reason = (
+            f"गंभीर आपातकालीन खतरे के संकेत ({flags_formatted}) पाए गए। तुरंत 112 पर कॉल करें; इस ऐप द्वारा किसी सेवा से संपर्क नहीं किया गया है।"
+            if is_hindi_or_hinglish
+            else f"Potential emergency warning signs detected ({flags_formatted}). Call 112 now; no service has been contacted by this app."
+        )
         return {
             "care_type": "emergency_112",
             "urgency": "emergency",
             "red_flags": red_flags,
-            "reasoning": f"Potential emergency warning signs detected ({flags_formatted}). Call 112 now; no service has been contacted by this app.",
+            "reasoning": emergency_reason,
             "is_emergency": True
         }
 
@@ -144,27 +156,33 @@ async def evaluate_triage(
             "care_type": "lab_test_home",
             "urgency": "scheduled",
             "red_flags": [],
-            "reasoning": "Home diagnostic sample collection requested.",
+            "reasoning": "घर पर जांच सैंपल कलेक्शन का अनुरोध; निर्धारित समय पर।" if is_hindi_or_hinglish else "Home diagnostic sample collection requested.",
             "is_emergency": False
         }
 
-    if any(k in raw_lower for k in ["dressing", "injection", "wound", "catheter", "patti", "bedsore", "stitches", "sua"]):
+    if any(k in raw_lower for k in ["dressing", "injection", "wound", "catheter", "patti", "bedsore", "stitches", "sua", "cut"]):
         return {
             "care_type": "home_nursing",
             "urgency": "same_day",
             "red_flags": [],
-            "reasoning": "Specific nursing procedure requested; Medic home visit; urgency assessed as same_day.",
+            "reasoning": "मामूली कट या घाव के लिए घर पर ड्रेसिंग व नर्सिंग देखभाल उपयुक्त है; आज ही उपलब्ध।" if is_hindi_or_hinglish else "Specific nursing procedure requested; Medic home visit; urgency assessed as same_day.",
             "is_emergency": False
         }
 
     # 3. LLM Triage using Groq (with zero-downtime fallback)
     client = get_groq_client()
     if client:
+        lang_instruction = (
+            "User query is in Hindi/Hinglish. Write the 'reasoning' strictly in Hindi (Devanagari script, e.g. 'मामूली कट या घाव के लिए घर पर ड्रेसिंग/नर्सिंग देखभाल उपयुक्त है।')."
+            if is_hindi_or_hinglish
+            else "Write the 'reasoning' in English."
+        )
         user_prompt = f"""
 Patient: {entities.patient}
 Symptoms: {json.dumps(entities.symptoms)}
 Duration: {entities.duration}
 User Query: {raw_input}
+Language Instruction: {lang_instruction}
 """
         models_to_try = [
             "openai/gpt-oss-120b",

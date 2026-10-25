@@ -179,7 +179,7 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
           const emergency = emergencyRequested.current || isEmergencyResponse(response)
           const supersededByEmergency = emergencyRequested.current && !isEmergencyResponse(response)
           const detected = (response.detected_language || '').toLowerCase()
-          const isHindi = uiLanguage === 'hi' || detected === 'hindi' || detected === 'hi'
+          const isHindi = uiLanguage === 'hi' || detected === 'hindi' || detected === 'hi' || detected === 'hinglish'
           if (isHindi && uiLanguage !== 'hi') {
             setUiLanguage('hi')
           }
@@ -422,6 +422,7 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
             onReadAloud={() => voice.speak(`reply-${i}`, turn.content, voiceLanguage)}
             isSpeaking={voice.speakingKey === `reply-${i}`}
             speechDisabled={!voice.canSpeak || voice.isListening}
+            language={uiLanguage}
           />
         ))}
 
@@ -454,6 +455,7 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
               isSpeaking={voice.speakingKey === `reply-${resultTurnIndex}`}
               disabled={!voice.canSpeak || voice.isListening}
               onClick={() => voice.speak(`reply-${resultTurnIndex}`, isEmergencyResponse(result) ? describeResponse(result!, uiLanguage) : (uiLanguage === 'hi' ? 'आपातकालीन सहायता के लिए तुरंत 112 या 102 पर कॉल करें। इस डेमो ने किसी एम्बुलेंस को नहीं भेजा है।' : 'Call 112 or 102 now for emergency assistance. This demo has not dispatched an ambulance or contacted a hospital.'), voiceLanguage)}
+              language={uiLanguage}
             />
             <EmergencyAssistance location={location} address={profile.address} disabled={isPending} onRecord={(summary) => {
               void persist([...history, { role: 'user', content: 'Record demo ambulance and hospital preferences' }, { role: 'assistant', content: summary }], true, null, null)
@@ -476,6 +478,7 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
               isSpeaking={voice.speakingKey === `reply-${resultTurnIndex}`}
               disabled={!voice.canSpeak || voice.isListening}
               onClick={() => voice.speak(`reply-${resultTurnIndex}`, describeResponse(result!, uiLanguage), voiceLanguage)}
+              language={uiLanguage}
             />
 
             <DoctorCaseSummary

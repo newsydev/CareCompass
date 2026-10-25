@@ -28,7 +28,7 @@ ROUTE_RULES = [
     ]),
     ("home_nursing", "same_day", "Specific nursing procedure requested; Medic home visit", [
         "injection", "insulin", "dressing", "bedsore", "wound", "catheter", "patti", "stitches",
-        "iv drip", "drip", "nebuliz", "suture", "इंजेक्शन", "इंसुलिन", "ड्रेसिंग", "घाव", "पट्टी",
+        "iv drip", "drip", "nebuliz", "suture", "cut", "कट", "चोट", "इंजेक्शन", "इंसुलिन", "ड्रेसिंग", "घाव", "पट्टी",
         "कैथेटर", "टांके", "ड्रिप",
     ]),
     ("teleconsultation", "same_day", "Non-urgent query suitable for a virtual doctor consult", [

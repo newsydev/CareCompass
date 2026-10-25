@@ -1,4 +1,5 @@
 import { SpeechButton } from './SpeechButton'
+import type { UiLanguage } from '../utils/i18n'
 
 interface ChatBubbleProps {
   role: 'user' | 'assistant'
@@ -6,9 +7,10 @@ interface ChatBubbleProps {
   onReadAloud?: () => void
   isSpeaking?: boolean
   speechDisabled?: boolean
+  language?: UiLanguage
 }
 
-export function ChatBubble({ role, content, onReadAloud, isSpeaking = false, speechDisabled = false }: ChatBubbleProps) {
+export function ChatBubble({ role, content, onReadAloud, isSpeaking = false, speechDisabled = false, language = 'en' }: ChatBubbleProps) {
   const isUser = role === 'user'
   return (
     <div className={`flex flex-col gap-1 ${isUser ? 'items-end' : 'items-start'}`}>
@@ -22,7 +24,7 @@ export function ChatBubble({ role, content, onReadAloud, isSpeaking = false, spe
         {content}
       </p>
       {!isUser && onReadAloud && (
-        <SpeechButton isSpeaking={isSpeaking} disabled={speechDisabled} onClick={onReadAloud} />
+        <SpeechButton isSpeaking={isSpeaking} disabled={speechDisabled} onClick={onReadAloud} language={language} />
       )}
     </div>
   )

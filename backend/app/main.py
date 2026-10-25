@@ -161,7 +161,7 @@ async def process_triage(request: TriageRequest) -> TriageResponse:
         if care_type is None and get_groq_client() is not None:
             entities = await extract_intake(request.user_input, request.language or "auto", history)
             if entities.is_complete:
-                llm = await evaluate_triage(raw_input=request.user_input, entities=entities)
+                llm = await evaluate_triage(raw_input=request.user_input, entities=entities, language=decision.language)
                 if llm["is_emergency"] or llm["care_type"] == "emergency_112":
                     assessment = escalate(assessment, llm["red_flags"])
                     return emergency_response(assessment, llm["reasoning"])
