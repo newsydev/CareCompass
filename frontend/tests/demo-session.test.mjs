@@ -322,3 +322,31 @@ test('saved response text retains urgent actions, uncertainties and demo limitat
   assert.match(summary, /Age unknown/)
   assert.match(summary, /not a diagnosis/)
 })
+
+test('describeResponse generates Hindi response in Hindi mode for chat and TTS', () => {
+  const h = createHarness()
+  const { describeResponse } = h.load('utils/chatSummary.ts')
+  const hiSummary = describeResponse({
+    follow_up_question: null,
+    care_type: 'paramedic_home_visit',
+    urgency: 'same_day',
+    red_flags: [],
+    reasoning: 'General complaint suitable for a Medic home visit with optional virtual doctor consult; urgency assessed as same_day.',
+    matched_caregivers: [],
+    assessment: {
+      level: 'routine',
+      possible_categories: ['Viral illness'],
+      risk_factors: [],
+      next_steps: ['Rest and hydrate.'],
+      supportive_steps: [],
+      missing_information: [],
+      viral_status: 'Cannot establish viral illness.',
+      disclaimer: 'Demo, not a diagnosis.',
+    },
+  }, 'hi')
+
+  assert.match(hiSummary, /सुझाई गई सेवा/)
+  assert.match(hiSummary, /घर पर मेडिक विज़िट/)
+  assert.match(hiSummary, /आज ही/)
+  assert.match(hiSummary, /[\u0900-\u097f]/)
+})

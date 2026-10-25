@@ -171,8 +171,12 @@ export function useVoiceChat(onTranscript: (text: string) => void) {
     try {
       const utterance = new SpeechSynthesisUtterance(text)
       utterance.lang = /[\u0900-\u097f]/.test(text) ? 'hi-IN' : language
+      const targetPrefix = utterance.lang.split('-')[0].toLowerCase()
       const voices = window.speechSynthesis.getVoices()
-      const matchingVoices = voices.filter((voice) => voice.lang.split('-')[0] === utterance.lang.split('-')[0])
+      const matchingVoices = voices.filter((voice) => {
+        const voiceLang = (voice.lang || '').replace('_', '-').toLowerCase()
+        return voiceLang.startsWith(targetPrefix) || (targetPrefix === 'hi' && voice.name.toLowerCase().includes('hindi'))
+      })
       const voice = matchingVoices.find((candidate) => candidate.localService) ?? matchingVoices[0]
       if (voice) utterance.voice = voice
       utterance.onend = () => {

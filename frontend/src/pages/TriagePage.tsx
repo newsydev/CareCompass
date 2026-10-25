@@ -79,6 +79,10 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
   const [uiLanguage, setUiLanguage] = useUiLanguage()
   const t = STRINGS[uiLanguage]
   const [voiceLanguage, setVoiceLanguage] = useState(uiLanguage === 'hi' ? 'hi-IN' : 'en-IN')
+
+  useEffect(() => {
+    setVoiceLanguage(uiLanguage === 'hi' ? 'hi-IN' : 'en-IN')
+  }, [uiLanguage])
   const [bookingTarget, setBookingTarget] = useState<string | null>(null)
   const [booking, setBooking] = useState<Booking | null>(null)
   const [bookingBusy, setBookingBusy] = useState(false)
@@ -200,9 +204,22 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
         onSuccess: (response) => {
           const emergency = emergencyRequested.current || isEmergencyResponse(response)
           const supersededByEmergency = emergencyRequested.current && !isEmergencyResponse(response)
+          const detected = (response.detected_language || '').toLowerCase()
+          const isHindi = uiLanguage === 'hi' || detected === 'hindi' || detected === 'hi'
+          if (isHindi && uiLanguage !== 'hi') {
+            setUiLanguage('hi')
+          }
+          const effectiveLang: UiLanguage = isHindi ? 'hi' : 'en'
+          const effectiveVoiceLang = isHindi ? 'hi-IN' : voiceLanguage
+          if (isHindi && voiceLanguage !== 'hi-IN') {
+            setVoiceLanguage('hi-IN')
+          }
+
           const reply = supersededByEmergency
-            ? 'You selected emergency assistance while the earlier request was being assessed. Call 112 or 102 now. No service has been contacted and no ambulance has been dispatched by this demo.'
-            : describeResponse(response)
+            ? (effectiveLang === 'hi'
+                ? 'पिछली जांच के दौरान आपने आपातकालीन सहायता चुनी थी। तुरंत 112 या 102 पर कॉल करें। इस डेमो द्वारा किसी सेवा से संपर्क नहीं किया गया है।'
+                : 'You selected emergency assistance while the earlier request was being assessed. Call 112 or 102 now. No service has been contacted and no ambulance has been dispatched by this demo.')
+            : describeResponse(response, effectiveLang)
           const messages: ConversationTurn[] = [
             ...pendingMessages,
             {
@@ -215,9 +232,8 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
           if (emergency) setEmergencyOpen(true)
           setResult(supersededByEmergency ? null : response)
           setInput('')
-          if (response.detected_language === 'hi' && voiceLanguage !== 'hi-IN') setVoiceLanguage('hi-IN')
           if (autoReadRef.current) {
-            voice.speak(`reply-${messages.length - 1}`, reply, voiceLanguage)
+            voice.speak(`reply-${messages.length - 1}`, reply, effectiveVoiceLang)
           }
         },
         onSettled: () => {
@@ -500,12 +516,16 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
 
         {isEmergency && (
           <div ref={emergencyPanel} className="flex scroll-mt-16 flex-col gap-3">
-            <EmergencyBanner redFlags={isEmergencyResponse(result) ? result!.red_flags : []} reasoning={isEmergencyResponse(result) ? result!.reasoning : 'You requested emergency assistance. Call 112 or 102 now; no service has been contacted by this app.'} />
+            <EmergencyBanner
+              redFlags={isEmergencyResponse(result) ? result!.red_flags : []}
+              reasoning={isEmergencyResponse(result) ? result!.reasoning : (uiLanguage === 'hi' ? 'आपने आपातकालीन सहायता का अनुरोध किया है। तुरंत 112 या 102 पर कॉल करें; इस ऐप द्वारा किसी सेवा से संपर्क नहीं किया गया है।' : 'You requested emergency assistance. Call 112 or 102 now; no service has been contacted by this app.')}
+              language={uiLanguage}
+            />
             <SpeechButton
-              label="Read emergency guidance aloud"
+              label={uiLanguage === 'hi' ? 'आपातकालीन निर्देश सुनें' : 'Read emergency guidance aloud'}
               isSpeaking={voice.speakingKey === `reply-${resultTurnIndex}`}
               disabled={!voice.canSpeak || voice.isListening}
-              onClick={() => voice.speak(`reply-${resultTurnIndex}`, isEmergencyResponse(result) ? describeResponse(result!) : 'Call 112 or 102 now for emergency assistance. This demo has not dispatched an ambulance or contacted a hospital.', voiceLanguage)}
+              onClick={() => voice.speak(`reply-${resultTurnIndex}`, isEmergencyResponse(result) ? describeResponse(result!, uiLanguage) : (uiLanguage === 'hi' ? 'आपातकालीन सहायता के लिए तुरंत 112 या 102 पर कॉल करें। इस डेमो ने किसी एम्बुलेंस को नहीं भेजा है।' : 'Call 112 or 102 now for emergency assistance. This demo has not dispatched an ambulance or contacted a hospital.'), voiceLanguage)}
             />
             <EmergencyAssistance location={location} address={profile.address} disabled={isPending} onRecord={(summary) => {
               void persist([...history, { role: 'user', content: 'Record demo ambulance and hospital preferences' }, { role: 'assistant', content: summary }], true, null, null)
@@ -524,10 +544,10 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
               language={uiLanguage}
             />}
             <SpeechButton
-              label="Read care recommendation aloud"
+              label={uiLanguage === 'hi' ? 'सलाह सुनें' : 'Read care recommendation aloud'}
               isSpeaking={voice.speakingKey === `reply-${resultTurnIndex}`}
               disabled={!voice.canSpeak || voice.isListening}
-              onClick={() => voice.speak(`reply-${resultTurnIndex}`, describeResponse(result!), voiceLanguage)}
+              onClick={() => voice.speak(`reply-${resultTurnIndex}`, describeResponse(result!, uiLanguage), voiceLanguage)}
             />
 
             <DoctorCaseSummary
