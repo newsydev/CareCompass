@@ -15,6 +15,8 @@ from app.modules.emergency import list_demo_hospitals
 from app.modules.intake import extract_intake
 from app.modules.triage import evaluate_triage, detect_red_flags, get_groq_client, TAXONOMY_DATA
 from app.modules.routing import route_request, contract_red_flags
+from app.modules.clarify import decide as clarify
+from app.modules.intent import gate as intent_gate, detect_language, OFF_TOPIC
 from app.bookings import router as bookings_router
 from app.modules.matching import match_caregivers, CAREGIVER_PROFILES
 from app.modules.stt import transcribe_audio_bytes
@@ -74,6 +76,8 @@ def emergency_response(assessment, reasoning):
         red_flags=contract_red_flags(assessment.critical_signs),
         reasoning=reasoning,
         assessment=assessment,
+        action="urgent_guidance",
+        message=reasoning,
     )
 
 @app.get("/")
@@ -157,6 +161,57 @@ async def process_triage(request: TriageRequest) -> TriageResponse:
             assessment = escalate(assessment, red_flags)
             return emergency_response(assessment, f"Red-flag symptoms detected ({', '.join(red_flags)}); routed to emergency services, not home care.")
 
+        if assessment.blocks_home_booking:
+            # Abnormal or uninterpretable vitals: do not offer a routine booking that could delay urgent care.
+            return TriageResponse(
+                follow_up_question=URGENT_CHECK[decision.language],
+                detected_language=decision.language,
+                reasoning=assessment.summary,
+                assessment=assessment,
+                action="urgent_guidance",
+                message=URGENT_CHECK[decision.language],
+            )
+        # Intent gate: only symptom reports and care requests go on to triage.
+        gated = await intent_gate(request.user_input, request.answers, history, request.language)
+        if gated.intent in OFF_TOPIC:
+            return TriageResponse(
+                action="answer",
+                follow_up_question=gated.message,  # contract-safe: no care type, no matches, never booked
+                message=gated.message,
+                reasoning={"health_info": "General information question, no symptoms reported yet",
+                           "greeting": "Greeting, no health problem reported yet",
+                           "prescribe_request": "Medicine advice is not provided; offered a clinician instead",
+                           "out_of_scope": "Not a health request",
+                           "gibberish": "Message not understood"}[gated.intent],
+                intent=gated.intent,
+                detected_language=detect_language(gated.text or request.user_input, request.language),
+            )
+        if gated.text != request.user_input:
+            request = request.model_copy(update={"user_input": gated.text})  # injected instructions dropped
+            decision = route_request(request.user_input, history, request.language)
+
+        # Need-based clarification: answer a general question, ask only what is missing and material, or proceed.
+        clarification = await clarify(request.user_input, history, request.answers, request.patient_context, request.language)
+        if clarification.action == "ask":
+            vague = bool(clarification.questions) and clarification.questions[0].question_id == "main_concern"
+            if vague and decision.care_type is None and get_groq_client() is not None:
+                # Nothing recognisable yet: still let the AI screen for an emergency before asking.
+                entities = await extract_intake(request.user_input, request.language or "auto", history)
+                if entities.is_complete:
+                    llm = await evaluate_triage(raw_input=request.user_input, entities=entities)
+                    if llm["is_emergency"] or llm["care_type"] == "emergency_112":
+                        assessment = escalate(assessment, llm["red_flags"])
+                        return emergency_response(assessment, llm["reasoning"])
+            return TriageResponse(
+                action="ask_followup",
+                follow_up_question=clarification.message,  # older clients treat this as "not decided yet"
+                message=clarification.message,
+                questions=clarification.questions,
+                answered_context=clarification.answered_context,
+                detected_language=decision.language,
+                assessment=assessment,
+            )
+
         care_type, urgency, reasoning = decision.care_type, decision.urgency, decision.reasoning
         if care_type is None and get_groq_client() is not None:
             entities = await extract_intake(request.user_input, request.language or "auto", history)
@@ -168,14 +223,6 @@ async def process_triage(request: TriageRequest) -> TriageResponse:
                 if llm["care_type"] in ROUTABLE_CARE_TYPES:
                     care_type, urgency, reasoning = llm["care_type"], llm["urgency"], llm["reasoning"]
 
-        if assessment.blocks_home_booking:
-            # Abnormal or uninterpretable vitals: do not offer a routine booking that could delay urgent care.
-            return TriageResponse(
-                follow_up_question=URGENT_CHECK[decision.language],
-                detected_language=decision.language,
-                reasoning=assessment.summary,
-                assessment=assessment,
-            )
         if assessment.requires_prompt_review:
             if care_type == "lab_test_home":
                 care_type = "paramedic_home_visit"
@@ -188,6 +235,8 @@ async def process_triage(request: TriageRequest) -> TriageResponse:
                 follow_up_question=decision.follow_up_question,
                 detected_language=decision.language,
                 assessment=assessment,
+                action="ask_followup",
+                message=decision.follow_up_question,
             )
 
         matched_caregivers, matching_note = match_caregivers(
@@ -201,10 +250,12 @@ async def process_triage(request: TriageRequest) -> TriageResponse:
             care_type=care_type,
             urgency=urgency,
             reasoning=reasoning,
+            intent="symptom_report",
             matched_caregivers=matched_caregivers,
             matching_note=matching_note,
             detected_language=decision.language,
             assessment=assessment,
+            action="answer",
         )
 
     except ValueError as ve:

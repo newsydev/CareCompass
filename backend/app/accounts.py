@@ -8,7 +8,7 @@ import sqlite3
 import time
 import uuid
 from datetime import datetime, timezone
-from typing import List, Literal, Optional
+from typing import Dict, List, Literal, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field, field_validator
@@ -90,6 +90,8 @@ class Profile(BaseModel):
 class Turn(BaseModel):
     role: Literal["user", "assistant"]
     content: str = Field(min_length=1, max_length=50000)
+    follow_up_ids: Optional[List[str]] = Field(None, max_length=3)
+    answers: Optional[Dict[str, Union[str, List[str]]]] = None
     patientContext: Optional[PatientContext] = None
     location: Optional[Location] = None
     result: Optional[TriageResponse] = None

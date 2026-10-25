@@ -6,7 +6,6 @@ const STORAGE_KEY = 'carecompass.uiLanguage'
 const en = {
   greeting: (name: string) => `Hi ${name}, welcome to CareCompass.`,
   howHelp: (name: string) => `${name}, how can we help you today?`,
-  chooseExample: 'Choose an example below or tell us what you need in English, Hindi, or Hinglish. You can request care for yourself or someone else.',
   demoBanner: 'Demo only, not a diagnosis, real booking, or emergency dispatch service. For emergencies in India, call 112 or 102.',
   placeholder: 'Describe the symptoms…',
   send: 'Send',
@@ -28,12 +27,19 @@ const en = {
   matchScore: 'Demo match score',
   emergency: 'Emergency',
   newChat: 'New chat',
+  followUpContinue: 'Continue',
+  followUpSending: 'Sending…',
+  followUpOther: 'Anything else? (optional)',
+  followUpOtherPlaceholder: 'Add details in your own words',
+  followUpRequired: 'Required',
+  followUpNeedAnswer: 'Choose an answer to continue.',
+  followUpError: 'Your answers are kept. Check your connection and press Continue to try again.',
+  followUpLabel: 'A few quick questions',
 }
 
 const hi: typeof en = {
   greeting: (name: string) => `नमस्ते ${name}, CareCompass में आपका स्वागत है।`,
   howHelp: (name: string) => `${name}, आज हम आपकी कैसे मदद करें?`,
-  chooseExample: 'नीचे एक उदाहरण चुनें या हिंदी, हिंग्लिश या अंग्रेज़ी में अपनी ज़रूरत बताएं। आप अपने लिए या किसी और के लिए देखभाल मांग सकते हैं।',
   demoBanner: 'केवल डेमो — यह निदान, असली बुकिंग या इमरजेंसी सेवा नहीं है। भारत में इमरजेंसी के लिए 112 या 102 पर कॉल करें।',
   placeholder: 'लक्षण या ज़रूरत लिखें…',
   send: 'भेजें',
@@ -55,6 +61,14 @@ const hi: typeof en = {
   matchScore: 'डेमो मिलान स्कोर',
   emergency: 'इमरजेंसी',
   newChat: 'नई चैट',
+  followUpContinue: 'आगे बढ़ें',
+  followUpSending: 'भेज रहे हैं…',
+  followUpOther: 'कुछ और? (वैकल्पिक)',
+  followUpOtherPlaceholder: 'अपने शब्दों में लिखें',
+  followUpRequired: 'ज़रूरी',
+  followUpNeedAnswer: 'आगे बढ़ने के लिए एक जवाब चुनें।',
+  followUpError: 'आपके जवाब सुरक्षित हैं। कनेक्शन जांचें और दोबारा “आगे बढ़ें” दबाएं।',
+  followUpLabel: 'कुछ छोटे सवाल',
 }
 
 export const STRINGS = { en, hi }

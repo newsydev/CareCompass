@@ -26,11 +26,10 @@ export function PatientContextForm({ value, onChange, recipient, onRecipientChan
           <option value="other">Someone else (enter their details)</option>
         </select>
       </label>
-      {recipientLocked && <p className="mt-1 text-xs text-gray-500">Start a new chat to change patients. This conversation keeps its own patient history and vitals.</p>}
       <details className="mt-3">
         <summary className="cursor-pointer text-sm font-medium text-brand-700">Patient history and vitals (optional)</summary>
         <fieldset disabled={disabled} className="mt-3 grid gap-3 text-sm text-gray-600 sm:grid-cols-2">
-          <p className="sm:col-span-2">Enter this patient's details only. Leave unknown measurements blank; never delay emergency help to collect them. These details are sent to the CareCompass API, not used to make a diagnosis.</p>
+          <p className="sm:col-span-2">Leave unknown values blank. Never delay emergency help to fill these in.</p>
           <label>Patient age (years)
             <input type="number" min="0" max="120" step="any" value={value.age_years ?? ''} onChange={(e) => onChange({ ...value, age_years: e.target.value === '' ? undefined : Number(e.target.value) })} className={inputClass} />
           </label>

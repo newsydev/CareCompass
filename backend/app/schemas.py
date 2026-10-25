@@ -1,4 +1,5 @@
-from typing import List, Optional, Any, Dict, Literal
+import re
+from typing import List, Optional, Any, Dict, Literal, Union
 from pydantic import BaseModel, Field, model_validator, field_validator
 
 class Location(BaseModel):
@@ -46,6 +47,23 @@ class TriageRequest(BaseModel):
     location: Optional[Location] = Field(None, description="User GPS coordinates")
     conversation_history: Optional[List[Dict[str, Any]]] = Field(default_factory=list, description="Prior conversation turns")
     patient_context: PatientContext = Field(default_factory=PatientContext)
+    answers: Dict[str, Union[str, List[str]]] = Field(
+        default_factory=dict,
+        description="Structured answers to the previous follow-up questions, keyed by question_id",
+    )
+
+    @field_validator("answers")
+    @classmethod
+    def check_answers(cls, value):
+        if len(value) > 10:
+            raise ValueError("Too many answers.")
+        for key, answer in value.items():
+            if not re.fullmatch(r"[a-z][a-z0-9_]{1,40}", key):
+                raise ValueError("Invalid question id.")
+            items = answer if isinstance(answer, list) else [answer]
+            if len(items) > 12 or any(len(item) > 300 for item in items):
+                raise ValueError("Answer is too long.")
+        return value
 
     @field_validator("user_input")
     @classmethod
@@ -53,6 +71,36 @@ class TriageRequest(BaseModel):
         if not value.strip():
             raise ValueError("Enter a symptom or service request.")
         return value.strip()
+
+class FollowUpOption(BaseModel):
+    value: str = Field(min_length=1, max_length=60)
+    label: str = Field(min_length=1, max_length=120)
+    # Canonical clinical phrase written into the transcript when this option is chosen,
+    # so the safety rules see it whatever language the label is shown in.
+    text: Optional[str] = Field(None, max_length=120)
+    # Representative age (years) to remember for this chat; only set when the option implies one.
+    age_years: Optional[float] = Field(None, ge=0, le=120)
+
+class FollowUpQuestion(BaseModel):
+    question_id: str = Field(pattern=r"^[a-z][a-z0-9_]{1,40}$")
+    question_text: str = Field(min_length=3, max_length=240)
+    summary_label: str = Field(min_length=1, max_length=40)
+    input_type: Literal["single_choice", "multi_choice", "text"]
+    options: List[FollowUpOption] = Field(default_factory=list, max_length=10)
+    required: bool = True
+    allow_custom_input: bool = True
+
+    @model_validator(mode="after")
+    def check_options(self):
+        if self.input_type == "text" and self.options:
+            raise ValueError("Text questions cannot have options.")
+        if self.input_type != "text" and len(self.options) < 2:
+            raise ValueError("Choice questions need at least two options.")
+        if len({option.value for option in self.options}) != len(self.options):
+            raise ValueError("Option values must be unique.")
+        return self
+
+TriageAction = Literal["answer", "ask_followup", "urgent_guidance"]
 
 class CaregiverMatch(BaseModel):
     caregiver_id: str
@@ -70,6 +118,11 @@ class TriageResponse(BaseModel):
     matching_note: Optional[str] = None
     detected_language: Optional[str] = None
     assessment: Optional[SafetyAssessment] = None
+    action: Optional[TriageAction] = None
+    message: Optional[str] = None
+    questions: List[FollowUpQuestion] = Field(default_factory=list, max_length=3)
+    intent: Optional[str] = None
+    answered_context: Dict[str, str] = Field(default_factory=dict)
 
 class DemoHospital(BaseModel):
     hospital_id: str

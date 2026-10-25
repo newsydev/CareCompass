@@ -37,7 +37,6 @@ export function ChatSidebar({ chats, activeId, onSelect, onNew, disabled, open, 
             </button>
           ))}
         </nav>
-        <p className="mt-3 text-xs text-gray-500">Demo history is stored per email in this tab, not a secure account. Logging in again starts a fresh chat.</p>
         <Link to="/profile" className="mt-3 text-sm font-medium text-brand-700">Edit profile</Link>
       </aside>
     </>

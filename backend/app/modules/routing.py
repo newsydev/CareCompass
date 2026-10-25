@@ -156,7 +156,10 @@ def route_request(user_input: str, history: Optional[List[Dict[str, Any]]] = Non
             None, language, patient, [], user_input,
         )
 
-    follow_ups = sum(1 for turn in history if turn.get("role") == "assistant" and turn.get("follow_up_question"))
+    follow_ups = sum(
+        1 for turn in history
+        if turn.get("role") == "assistant" and (turn.get("follow_up_ids") or turn.get("follow_up_question"))
+    )
     if follow_ups >= MAX_FOLLOW_UPS:
         return RouteDecision(
             "teleconsultation", "same_day",

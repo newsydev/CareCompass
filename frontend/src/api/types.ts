@@ -11,7 +11,31 @@ export interface ConversationTurn {
   patientContext?: PatientContext
   location?: Location
   result?: TriageResponse
+  follow_up_ids?: string[] // assistant turn: ids of the follow-up questions it asked
+  answers?: FollowUpAnswers // user turn: answers given to those questions
 }
+
+export type FollowUpAnswerValue = string | string[]
+export type FollowUpAnswers = Record<string, FollowUpAnswerValue>
+
+export interface FollowUpOption {
+  value: string
+  label: string
+  text?: string | null // canonical clinical phrase used in the composed answer
+  age_years?: number | null
+}
+
+export interface FollowUpQuestion {
+  question_id: string
+  question_text: string
+  summary_label: string
+  input_type: 'single_choice' | 'multi_choice' | 'text'
+  options: FollowUpOption[]
+  required: boolean
+  allow_custom_input: boolean
+}
+
+export type TriageAction = 'answer' | 'ask_followup' | 'urgent_guidance'
 
 export interface TriageRequest {
   user_input: string
@@ -19,6 +43,7 @@ export interface TriageRequest {
   location?: Location | null
   conversation_history?: ConversationTurn[]
   patient_context?: PatientContext
+  answers?: FollowUpAnswers
 }
 
 export interface Vitals {
@@ -92,6 +117,11 @@ export interface TriageResponse {
   matching_note?: string | null
   detected_language?: string | null
   assessment?: SafetyAssessment | null
+  action?: TriageAction | null
+  intent?: string | null // set when the message was not a symptom report (greeting, health_info, out_of_scope, ...)
+  message?: string | null
+  questions?: FollowUpQuestion[]
+  answered_context?: Record<string, string>
 }
 
 // Raw record shape from GET /api/caregivers (backend/app/data/caregivers.csv columns)

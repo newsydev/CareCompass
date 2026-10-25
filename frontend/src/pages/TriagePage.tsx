@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { CaregiverCard } from '../components/CaregiverCard'
 import { ChatBubble } from '../components/ChatBubble'
 import { EmergencyBanner } from '../components/EmergencyBanner'
+import { FollowUpQuestions } from '../components/FollowUpQuestions'
 import { RecommendationCard } from '../components/RecommendationCard'
 import { SpeechButton } from '../components/SpeechButton'
 import { AssessmentCard } from '../components/AssessmentCard'
@@ -23,8 +24,9 @@ import type { DemoProfile } from '../utils/demoProfile'
 import type { DemoChat } from '../utils/chatHistory'
 import { patientContextFromProfile, validatePatientContext } from '../utils/patientContext'
 import { describeResponse } from '../utils/chatSummary'
+import { ageHint, buildAnswers, composeAnswerText, draftFromAnswers, emptyDraft, isFollowUpResponse, isInformational, offTopicStreak, type Draft } from '../utils/followUp'
 import { DoctorCaseSummary } from '../components/DoctorCaseSummary'
-import type { Booking, ConversationTurn, TriageResponse } from '../api/types'
+import type { Booking, ConversationTurn, FollowUpAnswers, FollowUpQuestion, PatientContext, TriageResponse } from '../api/types'
 
 type ServiceExample = { label: string; example: string; recipient: 'self' | 'other' }
 const SERVICE_EXAMPLES: Record<UiLanguage, ServiceExample[]> = {
@@ -68,7 +70,10 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
   const [address, setAddress] = useState(profile.address)
   const [history, setHistory] = useState<ConversationTurn[]>(previousChat?.messages ?? [])
   const historyRef = useRef(history)
-  const [input, setInput] = useState(() => previousChat?.messages.at(-1)?.role === 'user' ? previousChat.messages.at(-1)!.content : '')
+  const [input, setInput] = useState(() => {
+    const last = previousChat?.messages.at(-1)
+    return last?.role === 'user' && !last.answers ? last.content : ''
+  })
   const [result, setResult] = useState<TriageResponse | null>(previousChat?.result ?? null)
   const [bookedCaregiverId, setBookedCaregiverId] = useState<string | null>(previousChat?.selectedCaregiverId ?? null)
   const [uiLanguage, setUiLanguage] = useUiLanguage()
@@ -90,8 +95,13 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
   const isPending = requestBusy || triage.isPending || saving
   const { data: caregivers } = useCaregivers()
 
-  const isDecided = result !== null && result.follow_up_question === null
+  const isDecided = result !== null && result.follow_up_question === null && !isInformational(result)
   const isEmergency = emergencyOpen || isEmergencyResponse(result)
+  const lastTurn = history.at(-1)
+  const followUpTurnIndex = lastTurn?.role === 'assistant' ? history.length - 1 : lastTurn?.answers ? history.length - 2 : -1
+  const followUpResponse = followUpTurnIndex >= 0 ? history[followUpTurnIndex]?.result : undefined
+  const pendingFollowUp = !emergencyOpen && isFollowUpResponse(followUpResponse) ? followUpResponse.questions : null
+  const showShortcuts = history.length === 0 ? !result : offTopicStreak(history) >= 2
   const resultTurnIndex = history.findLastIndex((turn) => turn.role === 'assistant' && turn.result !== undefined)
 
   useEffect(() => {
@@ -110,11 +120,11 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
     if (emergencyOpen) emergencyPanel.current?.scrollIntoView({ block: 'start' })
   }, [emergencyOpen])
 
-  async function persist(messages: ConversationTurn[], emergency: boolean, nextResult = result, selectedCaregiver = bookedCaregiverId) {
+  async function persist(messages: ConversationTurn[], emergency: boolean, nextResult = result, selectedCaregiver = bookedCaregiverId, context = patientContext) {
     historyRef.current = messages
     setHistory(messages)
     const record = {
-      id: activeChatId, messages, patientContext, recipient, emergency,
+      id: activeChatId, messages, patientContext: context, recipient, emergency,
       result: nextResult ?? undefined, location: location ?? undefined,
       selectedCaregiverId: selectedCaregiver ?? undefined,
     }
@@ -140,19 +150,34 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
         : 'This message mentions another patient. Select "Someone else" above and enter their details instead of using your profile.')
       return
     }
-    const validation = validatePatientContext(patientContext)
+    await send(text, undefined, patientContext)
+  }
+
+  // Answers from the follow-up card go out as a normal user turn, so safety and routing read them like typed text.
+  function handleAnswers(questions: FollowUpQuestion[], draft: Draft) {
+    if (submitting.current || isPending) return
+    const hint = ageHint(questions, draft)
+    const context = hint !== undefined && patientContext.age_years === undefined ? { ...patientContext, age_years: hint } : patientContext
+    if (context !== patientContext) setPatientContext(context)
+    void send(composeAnswerText(questions, draft), buildAnswers(questions, draft), context)
+  }
+
+  async function send(text: string, answers: FollowUpAnswers | undefined, context: PatientContext) {
+    if (!text || submitting.current) return
+    const validation = validatePatientContext(context)
     setPatientError(validation)
     if (validation) return
     voice.stopSpeaking()
     voice.clearError()
     const lastTurn = history.at(-1)
-    const priorHistory = lastTurn?.role === 'user' && lastTurn.content === text ? history.slice(0, -1) : history
+    const retrying = lastTurn?.role === 'user' && (lastTurn.content === text || (answers !== undefined && lastTurn.answers !== undefined))
+    const priorHistory = retrying ? history.slice(0, -1) : history
     const pendingMessages: ConversationTurn[] = [...priorHistory, {
-      role: 'user', content: text, patientContext, location: location ?? undefined,
+      role: 'user', content: text, patientContext: context, location: location ?? undefined, ...(answers ? { answers } : {}),
     }]
     submitting.current = true
     setRequestBusy(true)
-    if (!await persist(pendingMessages, emergencyRequested.current, null, null)) {
+    if (!await persist(pendingMessages, emergencyRequested.current, null, null, context)) {
       submitting.current = false
       setRequestBusy(false)
       return
@@ -167,8 +192,9 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
         user_input: text,
         language: uiLanguage === 'hi' ? 'hi' : 'auto',
         location,
-        conversation_history: priorHistory.map(({ role, content }) => ({ role, content })),
-        patient_context: patientContext,
+        conversation_history: priorHistory.map(({ role, content, follow_up_ids, answers: given }) => ({ role, content, follow_up_ids, answers: given })),
+        patient_context: context,
+        answers,
       },
       {
         onSuccess: (response) => {
@@ -179,10 +205,13 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
             : describeResponse(response)
           const messages: ConversationTurn[] = [
             ...pendingMessages,
-            { role: 'assistant', content: reply, result: supersededByEmergency ? undefined : response },
+            {
+              role: 'assistant', content: reply, result: supersededByEmergency ? undefined : response,
+              ...(!supersededByEmergency && isFollowUpResponse(response) ? { follow_up_ids: response.questions.map((question) => question.question_id) } : {}),
+            },
           ]
           emergencyRequested.current = emergency
-          void persist(messages, emergency, supersededByEmergency ? null : response, null)
+          void persist(messages, emergency, supersededByEmergency ? null : response, null, context)
           if (emergency) setEmergencyOpen(true)
           setResult(supersededByEmergency ? null : response)
           setInput('')
@@ -275,12 +304,9 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
         <p className="mt-1 text-sm text-gray-500">
           Account: {profile.email} <Link to="/profile" className="ml-2 font-medium text-brand-600">Edit profile</Link>
         </p>
-        <p className="mt-3 text-sm text-gray-700">
-          {profile.address ? `Your address: ${profile.address}` : 'Add your care address below. Location sharing does not fill in your street address.'}
-        </p>
         {profile && (
           <form
-            className="mt-2 flex flex-wrap gap-2"
+            className="mt-3 flex flex-wrap gap-2"
             onSubmit={(e) => {
               e.preventDefault()
               updateProfile({ ...profile, address: address.trim() })
@@ -310,11 +336,7 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
           >
             {isLocating ? 'Finding your location...' : 'Use my current location'}
           </button>
-          <p className="text-sm text-gray-500" role="status">
-            {location
-              ? `Shared coordinates (saved with this conversation): ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`
-              : 'Location not shared. You can still request care, but distances will not be based on your location.'}
-          </p>
+          {location && <p className="text-sm text-gray-500" role="status">{`Location shared: ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`}</p>}
         </div>
         {locationError && (
           <div className="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
@@ -327,16 +349,8 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
             >
               Open in a new tab
             </a>
-            <p className="mt-1">
-              If this stays in the embedded preview, copy this page's URL into Safari or Chrome.
-              Log in with your account to access your saved profile in another browser.
-            </p>
           </div>
         )}
-        <p className="mt-2 text-xs text-gray-500">
-          Your address is saved in your account; it is not geocoded.
-          Shared coordinates are saved with your conversation and used for nearby matching. Reopened chats reuse those coordinates; share your location again if it has changed.
-        </p>
       </section>
 
       <PatientContextForm
@@ -353,10 +367,10 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
       />
       {patientError && <p role="alert" className="mt-2 text-sm text-red-700">{patientError}</p>}
 
-      {history.length === 0 && !result && (
+      {showShortcuts && (
         <section className="mb-4" aria-label="Choose a care service">
           <p className="text-sm text-gray-700">
-            {t.howHelp(profile.name)} {t.chooseExample}
+            {t.howHelp(profile.name)}
           </p>
           <div className="mt-3">
             <SpeechButton
@@ -391,7 +405,7 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
               className="rounded-lg border border-red-300 bg-red-50 p-3 text-left text-red-800 hover:bg-red-100 sm:col-span-2"
             >
               <span className="block text-sm font-semibold">{t.emergency}</span>
-              <span className="mt-1 block text-xs">Call 112 / 102 now. View demo ambulance and hospital preferences; no dispatch or availability is confirmed.</span>
+              <span className="mt-1 block text-xs">Call 112 / 102 now</span>
             </button>
           </div>
         </section>
@@ -409,7 +423,19 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
           />
         ))}
 
-        {requestBusy && (
+        {pendingFollowUp && (
+          <FollowUpQuestions
+            key={followUpTurnIndex}
+            questions={pendingFollowUp}
+            initialDraft={lastTurn?.answers ? draftFromAnswers(pendingFollowUp, lastTurn.answers) : emptyDraft(pendingFollowUp)}
+            busy={isPending}
+            failed={triage.isError}
+            language={uiLanguage}
+            onSubmit={(draft) => handleAnswers(pendingFollowUp, draft)}
+          />
+        )}
+
+        {requestBusy && !pendingFollowUp && (
           <div className="flex justify-start">
             <p className="rounded-2xl rounded-bl-sm bg-gray-100 px-4 py-2.5 text-sm text-gray-500">
               {t.thinking}
@@ -565,7 +591,6 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
         )}
       </div>
       {voice.error && <p role="alert" className="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{voice.error}</p>}
-      {!voice.canSpeak && <p className="mt-2 text-sm text-gray-500">Read aloud is unavailable in this browser.</p>}
 
       {isDecided && (
         <button
@@ -582,13 +607,7 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
               <p role="status" className="rounded-lg bg-brand-50 p-3 text-sm text-brand-700">
                 Listening... {voice.interimTranscript || 'Speak now, then press Stop mic to review your message.'}
               </p>
-            ) : (
-              <p>
-                {voice.canListen
-                  ? 'Press the mic to speak. Review the transcript, then press Send. Your browser may send audio to its speech service.'
-                  : 'Voice input is unavailable in this preview. Open this URL in Chrome or Safari, or type below.'}
-              </p>
-            )}
+            ) : null}
           </div>
           <textarea
             value={input}

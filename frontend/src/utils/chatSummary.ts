@@ -3,6 +3,7 @@ import { humanizeSlug } from './humanize'
 
 export function describeResponse(response: TriageResponse) {
   if (response.follow_up_question) return response.follow_up_question
+  if (response.action === 'answer' && response.message && !response.care_type) return response.message
   const assessment = response.assessment
   const emergency = response.care_type === 'emergency_112' || response.urgency === 'emergency' ||
     response.red_flags.length > 0 || assessment?.level === 'emergency'
