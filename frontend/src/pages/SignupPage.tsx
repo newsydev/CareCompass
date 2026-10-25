@@ -12,7 +12,7 @@ export function SignupPage() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const form = new FormData(e.currentTarget)
-    if (await login(String(form.get('email') ?? ''), String(form.get('password') ?? ''), String(form.get('fullName') ?? ''))) navigate('/triage')
+    if (await login(String(form.get('email') ?? ''), String(form.get('password') ?? ''), String(form.get('fullName') ?? ''))) navigate('/home')
   }
 
   return (

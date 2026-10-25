@@ -12,7 +12,7 @@ export function LoginPage() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const form = new FormData(e.currentTarget)
-    if (await login(String(form.get('email') ?? ''), String(form.get('password') ?? ''))) navigate('/triage')
+    if (await login(String(form.get('email') ?? ''), String(form.get('password') ?? ''))) navigate('/home')
   }
 
   return (
