@@ -262,77 +262,90 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
     void persist(historyRef.current, true, null, null)
   }
 
+  const [detailsOpen, setDetailsOpen] = useState(false)
+  const detailsVisible = detailsOpen || patientError !== null || locationError !== null
+
   return (
-    <div className="flex h-full overflow-hidden">
-      <ChatSidebar chats={chats} activeId={activeChatId} onSelect={selectChat} onNew={startOver} disabled={isPending} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <section className="min-w-0 flex-1 overflow-y-auto bg-white" aria-label="Care conversation">
-        <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-gray-100 bg-white px-4 py-3">
-          <button type="button" onClick={() => setSidebarOpen(true)} className="rounded-lg border border-gray-200 px-3 py-2 text-sm md:hidden">Chat history</button>
-          <h1 className="min-w-0 truncate text-sm font-semibold text-gray-700">{chats.find((chat) => chat.id === activeChatId)?.title ?? 'New care conversation'}</h1>
-          <div className="flex shrink-0 items-center gap-2">
-            <div role="group" aria-label={t.uiLanguage} className="flex overflow-hidden rounded-lg border border-gray-200 text-sm">
-              {(['en', 'hi'] as const).map((code) => (
-                <button key={code} type="button" aria-pressed={uiLanguage === code} onClick={() => {
-                  setUiLanguage(code)
-                  voice.stopSpeaking()
-                  setVoiceLanguage(code === 'hi' ? 'hi-IN' : 'en-IN')
-                }} className={`px-2.5 py-2 ${uiLanguage === code ? 'bg-brand-500 text-white' : 'bg-white text-gray-700'}`}>
-                  {code === 'en' ? 'EN' : 'हिं'}
-                </button>
-              ))}
-            </div>
-            <button type="button" onClick={openEmergency} className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-800">{t.emergency}</button>
-            <button type="button" onClick={startOver} disabled={isPending} className="rounded-lg border border-gray-200 px-3 py-2 text-sm disabled:opacity-50">{t.newChat}</button>
+    <div className="flex h-full flex-col overflow-hidden bg-white">
+      <ChatSidebar chats={chats} activeId={activeChatId} onSelect={(id) => { selectChat(id); setSidebarOpen(false) }} onNew={() => { startOver(); setSidebarOpen(false) }} disabled={isPending} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <div className="shrink-0 border-b border-gray-100 bg-white px-3 py-2">
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => setSidebarOpen(true)} className="min-h-11 shrink-0 rounded-lg border border-gray-200 px-3 text-sm">Chat history</button>
+          <h1 className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-700">{chats.find((chat) => chat.id === activeChatId)?.title ?? 'New care conversation'}</h1>
+          <div role="group" aria-label={t.uiLanguage} className="flex shrink-0 overflow-hidden rounded-lg border border-gray-200 text-sm">
+            {(['en', 'hi'] as const).map((code) => (
+              <button key={code} type="button" aria-pressed={uiLanguage === code} onClick={() => {
+                setUiLanguage(code)
+                voice.stopSpeaking()
+                setVoiceLanguage(code === 'hi' ? 'hi-IN' : 'en-IN')
+              }} className={`min-h-11 min-w-11 px-2 ${uiLanguage === code ? 'bg-brand-500 text-white' : 'bg-white text-gray-700'}`}>
+                {code === 'en' ? 'EN' : 'हिं'}
+              </button>
+            ))}
           </div>
         </div>
-        <div className="mx-auto flex max-w-3xl flex-col px-4 py-5 sm:px-6">
-      <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">{t.demoBanner}</p>
-      {storageError && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-800">{storageError}</p>}
+        <div className="mt-2 flex items-center gap-2">
+          <button type="button" onClick={openEmergency} className="min-h-11 flex-1 rounded-lg border border-red-200 bg-red-50 px-3 text-sm font-semibold text-red-800">{t.emergency}</button>
+          <button type="button" onClick={startOver} disabled={isPending} className="min-h-11 shrink-0 rounded-lg border border-gray-200 px-4 text-sm disabled:opacity-50">{t.newChat}</button>
+        </div>
+      </div>
+      <section className="min-h-0 flex-1 overflow-y-auto bg-white" aria-label="Care conversation">
+        <div className="flex min-h-full flex-col px-3 pt-3">
+      <p className="mb-2 rounded-lg bg-amber-50 px-3 py-1.5 text-xs text-amber-900">{t.demoBanner}</p>
+      {storageError && <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-800">{storageError}</p>}
       {storageError && <button type="button" disabled={saving} onClick={async () => {
         const record = unsavedChat.current
         if (record && await saveChat(record) && unsavedChat.current === record) {
           unsavedChat.current = null
           setStorageError(null)
         }
-      }} className="mb-4 rounded-lg border border-red-200 px-3 py-2 text-sm">Retry saving conversation</button>}
-      {saving && <p role="status" className="mb-3 text-xs text-gray-500">Saving conversation...</p>}
+      }} className="mb-3 min-h-11 rounded-lg border border-red-200 px-3 text-sm">Retry saving conversation</button>}
+      {saving && <p role="status" className="mb-2 text-xs text-gray-500">Saving conversation...</p>}
 
-      <section className="mb-5 rounded-xl border border-gray-200 p-4" aria-label="Your details">
-        <h2 className="font-semibold text-gray-900">
-          {t.greeting(profile.name)}
-        </h2>
-        <p className="mt-1 text-sm text-gray-500">
-          Account: {profile.email} <Link to="/profile" className="ml-2 font-medium text-brand-600">Edit profile</Link>
+      <button
+        type="button"
+        aria-expanded={detailsVisible}
+        aria-controls="consult-details"
+        onClick={() => setDetailsOpen(!detailsVisible)}
+        className="mb-3 flex min-h-11 w-full items-center justify-between rounded-lg border border-gray-200 px-3 text-left text-sm font-medium text-gray-700"
+      >
+        <span>Patient &amp; address details</span>
+        <span aria-hidden="true" className={`transition-transform ${detailsVisible ? 'rotate-180' : ''}`}>&#9662;</span>
+      </button>
+      {patientError && <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{patientError}</p>}
+
+      <div id="consult-details" hidden={!detailsVisible} className="mb-3">
+      <section className="rounded-xl border border-gray-200 p-3" aria-label="Your details">
+        <p className="text-sm text-gray-500">
+          Account: <span className="break-all">{profile.email}</span> <Link to="/profile" className="ml-2 inline-flex min-h-11 items-center font-medium text-brand-600">Edit profile</Link>
         </p>
-        {profile && (
-          <form
-            className="mt-3 flex flex-wrap gap-2"
-            onSubmit={(e) => {
-              e.preventDefault()
-              updateProfile({ ...profile, address: address.trim() })
-            }}
-          >
-            <label className="min-w-0 flex-1 text-sm text-gray-600">
-              Care address
-              <input
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                autoComplete="street-address"
-                placeholder="House number, street, city and postal code"
-                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-gray-900"
-              />
-            </label>
-            <button type="submit" className="self-end rounded-lg border border-gray-200 px-3 py-2 text-sm">
-              Save address
-            </button>
-          </form>
-        )}
+        <form
+          className="mt-2 flex flex-col gap-2"
+          onSubmit={(e) => {
+            e.preventDefault()
+            updateProfile({ ...profile, address: address.trim() })
+          }}
+        >
+          <label className="min-w-0 text-sm text-gray-600">
+            Care address
+            <input
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              autoComplete="street-address"
+              placeholder="House number, street, city and postal code"
+              className="mt-1 min-h-11 w-full rounded-lg border border-gray-200 px-3 py-2 text-base text-gray-900"
+            />
+          </label>
+          <button type="submit" className="min-h-11 self-start rounded-lg border border-gray-200 px-4 text-sm">
+            Save address
+          </button>
+        </form>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button
             type="button"
             disabled={isLocating}
             onClick={requestLocation}
-            className="rounded-lg border border-gray-200 px-3 py-2 text-sm disabled:opacity-50"
+            className="min-h-11 rounded-lg border border-gray-200 px-3 text-sm disabled:opacity-50"
           >
             {isLocating ? 'Finding your location...' : 'Use my current location'}
           </button>
@@ -365,7 +378,40 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
         disabled={isPending || voice.isListening}
         recipientLocked={history.length > 0}
       />
-      {patientError && <p role="alert" className="mt-2 text-sm text-red-700">{patientError}</p>}
+
+      <div className="mt-3 flex flex-col gap-2 text-sm text-gray-600">
+        <label className="flex flex-wrap items-center gap-2">
+          Voice language
+          <select
+            value={voiceLanguage}
+            disabled={voice.isListening}
+            onChange={(e) => {
+              voice.stopSpeaking()
+              setVoiceLanguage(e.target.value)
+            }}
+            className="min-h-11 rounded-lg border border-gray-200 bg-white px-2 text-base"
+          >
+            <option value="en-IN">English / Hinglish</option>
+            <option value="hi-IN">Hindi</option>
+          </select>
+        </label>
+        <label className="flex min-h-11 items-center gap-2">
+          <input
+            type="checkbox"
+            checked={autoRead}
+            disabled={!voice.canSpeak}
+            onChange={(e) => {
+              autoReadRef.current = e.target.checked
+              setAutoRead(e.target.checked)
+              if (!e.target.checked) voice.stopSpeaking()
+            }}
+          />
+          Read replies aloud
+        </label>
+      </div>
+      </div>
+
+      <h2 className="mb-2 font-semibold text-gray-900">{t.greeting(profile.name)}</h2>
 
       {showShortcuts && (
         <section className="mb-4" aria-label="Choose a care service">
@@ -380,7 +426,7 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
               onClick={() => voice.speak('welcome', welcomeMessage, voiceLanguage)}
             />
           </div>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <div className="mt-3 grid gap-2">
             {SERVICE_EXAMPLES[uiLanguage].map((service) => (
               <button
                 key={service.label}
@@ -402,7 +448,7 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
             <button
               type="button"
               onClick={openEmergency}
-              className="rounded-lg border border-red-300 bg-red-50 p-3 text-left text-red-800 hover:bg-red-100 sm:col-span-2"
+              className="rounded-lg border border-red-300 bg-red-50 p-3 text-left text-red-800 hover:bg-red-100"
             >
               <span className="block text-sm font-semibold">{t.emergency}</span>
               <span className="mt-1 block text-xs">Call 112 / 102 now</span>
@@ -411,7 +457,7 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
         </section>
       )}
 
-      <div className="flex flex-1 flex-col gap-3">
+      <div className="flex flex-1 flex-col gap-3 pb-3">
         {history.map((turn, i) => isDecided && i === resultTurnIndex ? null : (
           <ChatBubble
             key={i}
@@ -555,53 +601,24 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
         )}
       </div>
 
-      <div className="mt-5 flex flex-wrap items-center gap-3 text-sm text-gray-600">
-        <label className="flex items-center gap-2">
-          Voice language
-          <select
-            value={voiceLanguage}
-            disabled={voice.isListening}
-            onChange={(e) => {
-              voice.stopSpeaking()
-              setVoiceLanguage(e.target.value)
-            }}
-            className="rounded-lg border border-gray-200 bg-white px-2 py-2"
-          >
-            <option value="en-IN">English / Hinglish</option>
-            <option value="hi-IN">Hindi</option>
-          </select>
-        </label>
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={autoRead}
-            disabled={!voice.canSpeak}
-            onChange={(e) => {
-              autoReadRef.current = e.target.checked
-              setAutoRead(e.target.checked)
-              if (!e.target.checked) voice.stopSpeaking()
-            }}
-          />
-          Read replies aloud
-        </label>
-        {voice.speakingKey && (
-          <button type="button" onClick={voice.stopSpeaking} className="font-medium text-brand-600">
-            Stop audio
-          </button>
-        )}
-      </div>
+      {voice.speakingKey && (
+        <button type="button" onClick={voice.stopSpeaking} className="mt-3 min-h-11 self-start font-medium text-brand-600">
+          Stop audio
+        </button>
+      )}
       {voice.error && <p role="alert" className="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{voice.error}</p>}
 
       {isDecided && (
         <button
           type="button"
           onClick={startOver}
-          className="mt-6 rounded-lg border border-gray-200 px-4 py-3 text-sm font-medium text-gray-600 transition hover:bg-gray-50"
+          className="mt-4 min-h-11 self-start rounded-lg border border-gray-200 px-4 text-sm font-medium text-gray-600 transition hover:bg-gray-50"
         >
           {t.newRequest}
         </button>
       )}
-        <form onSubmit={handleSubmit} className="mt-3 flex flex-wrap items-end gap-2">
+        <div ref={conversationEnd} />
+        <form onSubmit={handleSubmit} className="sticky bottom-0 z-10 -mx-3 mt-3 flex flex-wrap items-end gap-2 border-t border-gray-200 bg-white px-3 py-2">
           <div className="w-full text-xs text-gray-500">
             {voice.isListening ? (
               <p role="status" className="rounded-lg bg-brand-50 p-3 text-sm text-brand-700">
@@ -623,7 +640,7 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
             rows={1}
             aria-label="Your care request"
             placeholder={t.placeholder}
-            className="min-h-[52px] w-full resize-none rounded-lg border border-gray-200 px-3.5 py-3 text-gray-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 sm:w-auto sm:min-w-0 sm:flex-1"
+            className="max-h-32 min-h-11 min-w-0 flex-1 resize-none rounded-lg border border-gray-200 px-3 py-2.5 text-base text-gray-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
           />
           <button
             type="button"
@@ -631,24 +648,23 @@ export function TriagePage({ profile }: { profile: DemoProfile }) {
             aria-pressed={voice.isListening}
             disabled={!voice.canListen || isPending}
             onClick={() => voice.isListening ? voice.stopListening() : voice.startListening(input, voiceLanguage)}
-            className={`inline-flex h-[52px] items-center gap-2 rounded-lg border px-3 text-sm font-medium disabled:opacity-50 ${voice.isListening ? 'border-red-300 bg-red-50 text-red-700' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+            className={`inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-lg border px-2.5 text-sm font-medium disabled:opacity-50 ${voice.isListening ? 'border-red-300 bg-red-50 text-red-700' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}
           >
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
               <rect x="9" y="2" width="6" height="12" rx="3" />
               <path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3m-4 0h8" />
               {voice.isListening && <path d="m3 3 18 18" />}
             </svg>
-            {voice.isListening ? 'Stop mic' : 'Mic'}
+            {voice.isListening ? 'Stop mic' : <span className="sr-only">Mic</span>}
           </button>
           <button
             type="submit"
             disabled={!input.trim() || isPending || voice.isListening}
-            className="h-[52px] shrink-0 rounded-lg bg-brand-500 px-5 text-sm font-semibold text-white transition hover:bg-brand-600 active:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="h-11 shrink-0 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white transition hover:bg-brand-600 active:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {t.send}
           </button>
         </form>
-        <div ref={conversationEnd} />
         </div>
       </section>
     </div>

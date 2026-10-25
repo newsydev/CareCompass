@@ -30,7 +30,7 @@ export function FollowUpQuestions({ questions, initialDraft, busy, failed, langu
         event.preventDefault()
         if (ready && !busy) onSubmit(draft)
       }}
-      className="rounded-xl border border-brand-200 bg-brand-50 p-4 sm:p-5"
+      className="rounded-xl border border-brand-200 bg-brand-50 p-3"
     >
       <div className="flex flex-col gap-5">
         {questions.map((question) => {
@@ -44,7 +44,7 @@ export function FollowUpQuestions({ questions, initialDraft, busy, failed, langu
                 {question.required && <span className="ml-2 text-xs font-normal text-gray-500">{t.followUpRequired}</span>}
               </legend>
               {question.input_type !== 'text' && (
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <div className="mt-2 grid gap-2">
                   {question.options.map((option) => {
                     const checked = answer.selected.includes(option.value)
                     return (
@@ -62,7 +62,7 @@ export function FollowUpQuestions({ questions, initialDraft, busy, failed, langu
                           onChange={() => update(question.question_id, toggleChoice(question, answer, option.value))}
                           className="h-4 w-4 shrink-0 accent-brand-500"
                         />
-                        <span>{option.label}</span>
+                        <span className="min-w-0">{option.label}</span>
                       </label>
                     )
                   })}
@@ -92,7 +92,7 @@ export function FollowUpQuestions({ questions, initialDraft, busy, failed, langu
         type="submit"
         disabled={!ready || busy}
         aria-describedby={!ready && !busy ? `${baseId}-hint` : undefined}
-        className="mt-4 h-11 rounded-lg bg-brand-500 px-5 text-sm font-semibold text-white transition hover:bg-brand-600 active:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+        className="mt-4 h-11 w-full rounded-lg bg-brand-500 px-5 text-sm font-semibold text-white transition hover:bg-brand-600 active:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {busy ? t.followUpSending : t.followUpContinue}
       </button>
